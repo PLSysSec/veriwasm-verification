@@ -1,0 +1,1 @@
+(cdq) -> (RDX = 0x0_32 o sign-extend-64(RAX[31:0])[63:32])

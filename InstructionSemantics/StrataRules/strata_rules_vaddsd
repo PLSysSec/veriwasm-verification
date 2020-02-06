@@ -1,0 +1,2 @@
+(vaddsd xmm, xmm, m64) -> (OP1 = 0x0_128 o (OP1[127:64] o add_double(OP2[63:0], OP3[63:0])))
+(vaddsd xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP1[127:64] o add_double(OP2[63:0], OP3[63:0])))

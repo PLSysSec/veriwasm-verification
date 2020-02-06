@@ -1,0 +1,2 @@
+(unpckhpd xmm, m128) -> (OP1 = OP1[255:128] o (OP2[127:64] o OP1[127:64]))
+(unpckhpd xmm, xmm) -> (OP1 = OP1[255:128] o (OP2[127:64] o OP1[127:64]))

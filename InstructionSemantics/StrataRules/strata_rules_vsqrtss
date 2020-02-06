@@ -1,0 +1,2 @@
+(vsqrtss xmm, xmm, m32) -> (OP1 = 0x0_128 o (OP1[127:32] o sqrt_single(OP3[31:0])))
+(vsqrtss xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP1[127:32] o sqrt_single(OP3[31:0])))

@@ -1,0 +1,2 @@
+(movsxd r64, r32) -> (OP1 = sign-extend-64(OP2[31:0]))
+(movsxd r64, m32) -> (OP1 = sign-extend-64(OP2[31:0]))

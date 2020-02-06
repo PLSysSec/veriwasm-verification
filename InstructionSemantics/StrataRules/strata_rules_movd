@@ -1,0 +1,4 @@
+(movd r32, xmm) -> (OP1 = 0x0_32 o OP2[31:0])
+(movd m32, xmm) -> (OP1 = (0x0_32 o OP2[31:0])[31:0])
+(movd xmm, r32) -> (OP1 = OP1[255:128] o (0x0_96 o OP2[31:0]))
+(movd xmm, m32) -> (OP1 = OP1[255:128] o (0x0_96 o OP2[31:0]))

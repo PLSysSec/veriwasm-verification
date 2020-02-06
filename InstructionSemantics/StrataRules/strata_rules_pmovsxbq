@@ -1,0 +1,1 @@
+(pmovsxbq xmm, xmm) -> (OP1 = OP1[255:128] o (sign-extend-64(OP2[15:8]) o sign-extend-64(OP2[7:0])))

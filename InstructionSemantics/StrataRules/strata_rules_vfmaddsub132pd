@@ -1,0 +1,2 @@
+(vfmaddsub132pd xmm, xmm, m128) -> (OP1 = 0x0_128 o (vfmsub132_double(OP1[127:64], vnfmsub132_double(0x0_64, OP2[127:64], 0x0_64), OP3[127:64]) o vfmsub132_double(OP1[63:0], OP2[63:0], OP3[63:0])))
+(vfmaddsub132pd xmm, xmm, xmm) -> (OP1 = 0x0_128 o (vfmsub132_double(OP1[127:64], vnfmsub132_double(0x0_64, OP2[127:64], 0x0_64), OP3[127:64]) o vfmsub132_double(OP1[63:0], OP2[63:0], OP3[63:0])))

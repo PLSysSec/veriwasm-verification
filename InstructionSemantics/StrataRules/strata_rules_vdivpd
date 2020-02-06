@@ -1,0 +1,4 @@
+(vdivpd xmm, xmm, m128) -> (OP1 = 0x0_128 o (div_double(OP2[127:64], OP3[127:64]) o div_double(OP2[63:0], OP3[63:0])))
+(vdivpd xmm, xmm, xmm) -> (OP1 = 0x0_128 o (div_double(OP2[127:64], OP3[127:64]) o div_double(OP2[63:0], OP3[63:0])))
+(vdivpd ymm, ymm, m256) -> (OP1 = div_double(OP2[255:192], OP3[255:192]) o (div_double(OP2[191:128], OP3[191:128]) o (div_double(OP2[127:64], OP3[127:64]) o div_double(OP2[63:0], OP3[63:0]))))
+(vdivpd ymm, ymm, ymm) -> (OP1 = div_double(OP2[255:192], OP3[255:192]) o (div_double(OP2[191:128], OP3[191:128]) o (div_double(OP2[127:64], OP3[127:64]) o div_double(OP2[63:0], OP3[63:0]))))

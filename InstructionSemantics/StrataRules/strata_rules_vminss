@@ -1,0 +1,2 @@
+(vminss xmm, xmm, m32) -> (OP1 = 0x0_128 o (OP2[127:32] o (mincmp_single(OP2[31:0], OP3[31:0]) == 0x1_1 ? OP2[31:0] : OP3[31:0])))
+(vminss xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP2[127:32] o (mincmp_single(OP2[31:0], OP3[31:0]) == 0x1_1 ? OP2[31:0] : OP3[31:0])))

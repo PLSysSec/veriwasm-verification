@@ -1,0 +1,4 @@
+(vcvtpd2ps xmm, m128) -> (OP1 = 0x0_128 o (OP1[127:64] o (cvt_double_to_single(OP2[127:64]) o cvt_double_to_single(OP2[63:0]))))
+(vcvtpd2ps xmm, m256) -> (OP1 = 0x0_128 o (cvt_double_to_single(OP2[255:192]) o (cvt_double_to_single(OP2[191:128]) o (cvt_double_to_single(OP2[127:64]) o cvt_double_to_single(OP2[63:0])))))
+(vcvtpd2ps xmm, xmm) -> (OP1 = 0x0_128 o (OP1[127:64] o (cvt_double_to_single(OP2[127:64]) o cvt_double_to_single(OP2[63:0]))))
+(vcvtpd2ps xmm, ymm) -> (OP1 = 0x0_128 o (cvt_double_to_single(OP2[255:192]) o (cvt_double_to_single(OP2[191:128]) o (cvt_double_to_single(OP2[127:64]) o cvt_double_to_single(OP2[63:0])))))

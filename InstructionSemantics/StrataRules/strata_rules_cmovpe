@@ -1,0 +1,6 @@
+(cmovpe r32, r32) -> (OP1 = 0x0_32 o (PF ? OP2[31:0] : OP1[31:0]))
+(cmovpe r32, m32) -> (OP1 = 0x0_32 o (PF ? OP2[31:0] : OP1[31:0]))
+(cmovpe r64, r64) -> (OP1 = PF ? OP2 : OP1)
+(cmovpe r64, m64) -> (OP1 = PF ? OP2 : OP1)
+(cmovpe r16, r16) -> (OP1 = OP1[63:16] o (PF ? OP2[15:0] : OP1[15:0]))
+(cmovpe r16, m16) -> (OP1 = OP1[63:16] o (PF ? OP2[15:0] : OP1[15:0]))

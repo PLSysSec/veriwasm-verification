@@ -1,0 +1,2 @@
+(rcpps xmm, m128) -> (OP1 = OP1[255:128] o (approx_reciprocal_single(OP2[127:96]) o (approx_reciprocal_single(OP2[95:64]) o (approx_reciprocal_single(OP2[63:32]) o approx_reciprocal_single(OP2[31:0])))))
+(rcpps xmm, xmm) -> (OP1 = OP1[255:128] o (approx_reciprocal_single(OP2[127:96]) o (approx_reciprocal_single(OP2[95:64]) o (approx_reciprocal_single(OP2[63:32]) o approx_reciprocal_single(OP2[31:0])))))

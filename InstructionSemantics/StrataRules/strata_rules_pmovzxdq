@@ -1,0 +1,2 @@
+(pmovzxdq xmm, m64) -> (OP1 = OP1[255:128] o (0x0_32 o OP2[63:32] o (0x0_32 o OP2[31:0])))
+(pmovzxdq xmm, xmm) -> (OP1 = OP1[255:128] o (0x0_32 o OP2[63:32] o (0x0_32 o OP2[31:0])))

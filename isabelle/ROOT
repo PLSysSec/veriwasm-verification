@@ -1,0 +1,19 @@
+session "reassembly_datatypes" = "HOL-Word"  + theories "MachineDatatypes"
+session "reassembly_machine" = "reassembly_datatypes"  + theories "Machine"
+
+session reassembly_rewriting = reassembly_machine +
+  theories Memory_Rewriting
+session reassembly_manual_execution = reassembly_rewriting +
+  theories Manual_Execution
+session reassembly_setup = reassembly_manual_execution +
+  theories
+    "../x86-64_parser/Leviathan_Setup"
+    "Monads/More_Eisbach_Tools"
+session reassembly_all = reassembly_setup +
+  theories
+		Presimplified_Semantics
+
+session "reassembly_test_setup" = "reassembly_setup" + theories "../InstructionSemantics/TestLemmas/TestLemma_Setup"
+
+session "objdump_setup" = "reassembly_manual_execution" + theories "../x86-64_objdumpparser/Examples/Examples_Setup"
+session "gcc" = "objdump_setup" + theories "../x86-64_objdumpparser/Examples/GCC"

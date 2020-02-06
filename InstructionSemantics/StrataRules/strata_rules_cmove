@@ -1,0 +1,6 @@
+(cmove r32, r32) -> (OP1 = 0x0_32 o (ZF ? OP2[31:0] : OP1[31:0]))
+(cmove r32, m32) -> (OP1 = 0x0_32 o (ZF ? OP2[31:0] : OP1[31:0]))
+(cmove r64, r64) -> (OP1 = ZF ? OP2 : OP1)
+(cmove r64, m64) -> (OP1 = ZF ? OP2 : OP1)
+(cmove r16, r16) -> (OP1 = OP1[63:16] o (ZF ? OP2[15:0] : OP1[15:0]))
+(cmove r16, m16) -> (OP1 = OP1[63:16] o (ZF ? OP2[15:0] : OP1[15:0]))

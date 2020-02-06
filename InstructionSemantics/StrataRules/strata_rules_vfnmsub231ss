@@ -1,0 +1,2 @@
+(vfnmsub231ss xmm, xmm, m32) -> (OP1 = 0x0_128 o (OP1[127:32] o vfnmsub132_single(OP2[31:0], OP1[31:0], OP3[31:0])))
+(vfnmsub231ss xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP1[127:32] o vfnmsub132_single(OP2[31:0], OP1[31:0], OP3[31:0])))

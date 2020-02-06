@@ -1,0 +1,2 @@
+(movddup xmm, m64) -> (OP1 = OP1[255:128] o (OP2[63:0] o OP2[63:0]))
+(movddup xmm, xmm) -> (OP1 = OP1[255:128] o (OP2[63:0] o OP2[63:0]))

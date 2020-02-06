@@ -1,0 +1,1 @@
+(vmovsd xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP2[127:64] o OP3[63:0]))

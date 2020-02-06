@@ -1,0 +1,6 @@
+(cmovns r32, r32) -> (OP1 = 0x0_32 o (!SF ? OP2[31:0] : OP1[31:0]))
+(cmovns r32, m32) -> (OP1 = 0x0_32 o (!SF ? OP2[31:0] : OP1[31:0]))
+(cmovns r64, r64) -> (OP1 = !SF ? OP2 : OP1)
+(cmovns r64, m64) -> (OP1 = !SF ? OP2 : OP1)
+(cmovns r16, r16) -> (OP1 = OP1[63:16] o (!SF ? OP2[15:0] : OP1[15:0]))
+(cmovns r16, m16) -> (OP1 = OP1[63:16] o (!SF ? OP2[15:0] : OP1[15:0]))

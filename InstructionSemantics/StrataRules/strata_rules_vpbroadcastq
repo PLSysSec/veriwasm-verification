@@ -1,0 +1,4 @@
+(vpbroadcastq xmm, m64) -> (OP1 = 0x0_128 o (OP2[63:0] o OP2[63:0]))
+(vpbroadcastq xmm, xmm) -> (OP1 = 0x0_128 o (OP2[63:0] o OP2[63:0]))
+(vpbroadcastq ymm, m64) -> (OP1 = OP2[63:0] o OP2[63:0] o (OP2[63:0] o OP2[63:0]))
+(vpbroadcastq ymm, xmm) -> (OP1 = OP2[63:0] o OP2[63:0] o (OP2[63:0] o OP2[63:0]))

@@ -1,0 +1,4 @@
+(vsqrtps xmm, m128) -> (OP1 = 0x0_128 o (sqrt_single(OP2[127:96]) o (sqrt_single(OP2[95:64]) o (sqrt_single(OP2[63:32]) o sqrt_single(OP2[31:0])))))
+(vsqrtps xmm, xmm) -> (OP1 = 0x0_128 o (sqrt_single(OP2[127:96]) o (sqrt_single(OP2[95:64]) o (sqrt_single(OP2[63:32]) o sqrt_single(OP2[31:0])))))
+(vsqrtps ymm, m256) -> (OP1 = sqrt_single(OP2[255:224]) o (sqrt_single(OP2[223:192]) o (sqrt_single(OP2[191:160]) o (sqrt_single(OP2[159:128]) o (sqrt_single(OP2[127:96]) o (sqrt_single(OP2[95:64]) o (sqrt_single(OP2[63:32]) o sqrt_single(OP2[31:0]))))))))
+(vsqrtps ymm, ymm) -> (OP1 = sqrt_single(OP2[255:224]) o (sqrt_single(OP2[223:192]) o (sqrt_single(OP2[191:160]) o (sqrt_single(OP2[159:128]) o (sqrt_single(OP2[127:96]) o (sqrt_single(OP2[95:64]) o (sqrt_single(OP2[63:32]) o sqrt_single(OP2[31:0]))))))))

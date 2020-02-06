@@ -1,0 +1,6 @@
+(cmovno r32, r32) -> (OP1 = 0x0_32 o (!OF ? OP2[31:0] : OP1[31:0]))
+(cmovno r32, m32) -> (OP1 = 0x0_32 o (!OF ? OP2[31:0] : OP1[31:0]))
+(cmovno r64, r64) -> (OP1 = !OF ? OP2 : OP1)
+(cmovno r64, m64) -> (OP1 = !OF ? OP2 : OP1)
+(cmovno r16, r16) -> (OP1 = OP1[63:16] o (!OF ? OP2[15:0] : OP1[15:0]))
+(cmovno r16, m16) -> (OP1 = OP1[63:16] o (!OF ? OP2[15:0] : OP1[15:0]))

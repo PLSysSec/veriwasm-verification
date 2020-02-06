@@ -1,0 +1,2 @@
+(vmulss xmm, xmm, m32) -> (OP1 = 0x0_128 o (OP1[127:32] o mul_single(OP2[31:0], OP3[31:0])))
+(vmulss xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP1[127:32] o mul_single(OP2[31:0], OP3[31:0])))

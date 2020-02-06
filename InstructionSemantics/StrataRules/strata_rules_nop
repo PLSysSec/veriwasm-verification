@@ -1,0 +1,5 @@
+(nop) -> (None)
+(nop r32) -> (None)
+(nop m32) -> (None)
+(nop r16) -> (None)
+(nop m16) -> (None)

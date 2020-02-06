@@ -1,0 +1,2 @@
+(vaddsubps xmm, xmm, m128) -> (OP1 = 0x0_128 o (sub_single(OP2[95:64], OP3[95:64]) o add_single(OP2[127:96], OP3[127:96]) o (sub_single(OP2[31:0], OP3[31:0]) o add_single(OP2[63:32], OP3[63:32]))))
+(vaddsubps xmm, xmm, xmm) -> (OP1 = 0x0_128 o (sub_single(OP2[95:64], OP3[95:64]) o add_single(OP2[127:96], OP3[127:96]) o (sub_single(OP2[31:0], OP3[31:0]) o add_single(OP2[63:32], OP3[63:32]))))

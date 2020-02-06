@@ -1,0 +1,2 @@
+(cvtsi2ss xmm, r32) -> (OP1 = OP1[255:128] o (OP1[127:32] o cvt_int32_to_single(OP2[31:0])))
+(cvtsi2ss xmm, m32) -> (OP1 = OP1[255:128] o (OP1[127:32] o cvt_int32_to_single(OP2[31:0])))

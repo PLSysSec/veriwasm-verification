@@ -1,0 +1,2 @@
+(vrcpss xmm, xmm, m32) -> (OP1 = 0x0_128 o (OP1[127:32] o approx_reciprocal_single(OP3[31:0])))
+(vrcpss xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP1[127:32] o approx_reciprocal_single(OP3[31:0])))

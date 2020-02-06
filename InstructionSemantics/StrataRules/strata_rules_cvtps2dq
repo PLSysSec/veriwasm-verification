@@ -1,0 +1,2 @@
+(cvtps2dq xmm, m128) -> (OP1 = OP1[255:128] o (cvt_single_to_int32(OP2[127:96]) o (cvt_single_to_int32(OP2[95:64]) o (cvt_single_to_int32(OP2[63:32]) o cvt_single_to_int32(OP2[31:0])))))
+(cvtps2dq xmm, xmm) -> (OP1 = OP1[255:128] o (cvt_single_to_int32(OP2[127:96]) o (cvt_single_to_int32(OP2[95:64]) o (cvt_single_to_int32(OP2[63:32]) o cvt_single_to_int32(OP2[31:0])))))

@@ -1,0 +1,2 @@
+(mulpd xmm, m128) -> (OP1 = OP1[255:128] o (mul_double(OP1[127:64], OP2[127:64]) o mul_double(OP1[63:0], OP2[63:0])))
+(mulpd xmm, xmm) -> (OP1 = OP1[255:128] o (mul_double(OP1[127:64], OP2[127:64]) o mul_double(OP1[63:0], OP2[63:0])))

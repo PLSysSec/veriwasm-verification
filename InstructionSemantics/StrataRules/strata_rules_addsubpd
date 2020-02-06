@@ -1,0 +1,2 @@
+(addsubpd xmm, m128) -> (OP1 = OP1[255:128] o (sub_double(OP1[63:0], OP2[63:0]) o add_double(OP1[127:64], OP2[127:64])))
+(addsubpd xmm, xmm) -> (OP1 = OP1[255:128] o (sub_double(OP1[63:0], OP2[63:0]) o add_double(OP1[127:64], OP2[127:64])))

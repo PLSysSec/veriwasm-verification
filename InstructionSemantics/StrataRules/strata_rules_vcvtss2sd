@@ -1,0 +1,2 @@
+(vcvtss2sd xmm, xmm, m32) -> (OP1 = 0x0_128 o (OP1[127:64] o cvt_single_to_double(OP3[31:0])))
+(vcvtss2sd xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP1[127:64] o cvt_single_to_double(OP3[31:0])))

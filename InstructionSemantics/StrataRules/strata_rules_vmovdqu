@@ -1,0 +1,6 @@
+(vmovdqu m128, xmm) -> (OP1 = (0x0_128 o OP2[127:0])[127:0])
+(vmovdqu m256, ymm) -> (OP1 = (OP2)[255:0])
+(vmovdqu xmm, m128) -> (OP1 = 0x0_128 o OP2[127:0])
+(vmovdqu xmm, xmm) -> (OP1 = 0x0_128 o OP2[127:0])
+(vmovdqu ymm, m256) -> (OP1 = OP2)
+(vmovdqu ymm, ymm) -> (OP1 = OP2)

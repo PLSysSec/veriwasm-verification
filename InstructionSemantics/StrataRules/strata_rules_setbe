@@ -1,0 +1,3 @@
+(setbe rh) -> (OP1 = OP1[63:16] o (CF bool_or ZF ? 0x1_8 : 0x0_8) o OP1[7:0])
+(setbe r8) -> (OP1 = OP1[63:8] o (CF bool_or ZF ? 0x1_8 : 0x0_8))
+(setbe m8) -> (OP1 = (OP1[63:8] o (CF bool_or ZF ? 0x1_8 : 0x0_8))[7:0])

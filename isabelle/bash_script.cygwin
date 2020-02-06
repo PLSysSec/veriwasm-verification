@@ -1,0 +1,13 @@
+PATH=$PATH:{{PATH_TO_MAIN_ISABELLE_EXECUTABLE}}
+LEVIATHAN="{{PATH_TO_LEVIATHAN_GIT}}/isabelle"
+LEVIATHAN_BUILD_THREADS={{NUM_OF_CORES_TIMES_TWO_PLUS_ONE}}
+
+
+alias isabelle_leviathan_datatypes="cd ${LEVIATHAN} && isabelle jedit -d "." -l reassembly_datatypes"
+alias isabelle_leviathan_machine="cd ${LEVIATHAN} && isabelle jedit -d "." -l reassembly_machine"
+alias isabelle_leviathan_rewriting="cd ${LEVIATHAN} && isabelle jedit -d "." -l reassembly_rewriting"
+alias isabelle_leviathan_manual_execution="cd ${LEVIATHAN} && isabelle jedit -d "." -l reassembly_manual_execution"
+alias isabelle_leviathan_setup ="cd ${LEVIATHAN} && isabelle jedit -d "." -l reassembly_setup"
+alias isabelle_leviathan_all="cd ${LEVIATHAN} && isabelle jedit -d "." -l reassembly_all"
+alias isabelle_leviathan_heapstatus="cd ${LEVIATHAN} && isabelle build -n -v -D ."
+alias isabelle_leviathan_buildheaps="cd ${LEVIATHAN} && isabelle build -j${LEVIATHAN_BUILD_THREADS} -v -b -d . -o threads=${LEVIATHAN_BUILD_THREADS} reassembly_machine && isabelle build -j${LEVIATHAN_BUILD_THREADS} -v -b -d . -o threads=${LEVIATHAN_BUILD_THREADS} reassembly_execution && isabelle build -j${LEVIATHAN_BUILD_THREADS} -v -b -d . -o threads=${LEVIATHAN_BUILD_THREADS} reassembly_all_rewriting_debug"

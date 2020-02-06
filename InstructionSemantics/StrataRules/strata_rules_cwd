@@ -1,0 +1,1 @@
+(cwd) -> (RDX = RDX[63:16] o sign-extend-32(RAX[15:0])[31:16])

@@ -1,0 +1,2 @@
+(sqrtpd xmm, m128) -> (OP1 = OP1[255:128] o (sqrt_double(OP2[127:64]) o sqrt_double(OP2[63:0])))
+(sqrtpd xmm, xmm) -> (OP1 = OP1[255:128] o (sqrt_double(OP2[127:64]) o sqrt_double(OP2[63:0])))

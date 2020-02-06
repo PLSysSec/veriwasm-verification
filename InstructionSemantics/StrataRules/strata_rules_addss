@@ -1,0 +1,2 @@
+(addss xmm, m32) -> (OP1 = OP1[255:128] o (OP1[127:32] o add_single(OP1[31:0], OP2[31:0])))
+(addss xmm, xmm) -> (OP1 = OP1[255:128] o (OP1[127:32] o add_single(OP1[31:0], OP2[31:0])))

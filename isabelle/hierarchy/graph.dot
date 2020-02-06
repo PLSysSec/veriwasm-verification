@@ -1,0 +1,21 @@
+digraph graphname {
+	"..." -> MachineDataTypes -> Machine;
+	Symbolic_Rewriting -> Word_Additions;
+	Word_Additions -> Machine;
+	Machine -> Abstract_Float;
+
+	Machine -> Take_Bits_Rewriting;
+	Abstract_Float -> BitVectors;
+
+	MachineDataTypes -> Chum_Datatypes -> BitVectors;
+	BitVectors -> BitVector_Rewriting;
+	Take_Bits_Rewriting -> BitVector_Rewriting -> Chum_Rewriting;
+	Take_Bits_Rewriting -> Byte_Rewriting -> Memory_Rewriting -> Chum_Rewriting;
+	BitVectors -> Manual_Execution -> Chum_Execution -> Chum_Parser -> Chum_Rewriting;
+
+	Chum_Rewriting -> "Leviathan_Setup"
+
+	"Leviathan_Setup" -> Test_Lemmas;
+	"Leviathan_Setup" -> Examples;
+	"Leviathan_Setup" -> IEEE_Case_Study;
+}
