@@ -15,7 +15,7 @@
  *)
 
 theory Take_Bits_Rewriting
-  imports reassembly_machine.Machine
+  imports Machine
 begin
 
 

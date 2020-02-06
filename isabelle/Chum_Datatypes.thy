@@ -15,7 +15,7 @@
  *)
 
 theory Chum_Datatypes
-  imports reassembly_datatypes.MachineDatatypes 
+  imports MachineDatatypes 
 begin
 
 datatype B_binary_operators = 

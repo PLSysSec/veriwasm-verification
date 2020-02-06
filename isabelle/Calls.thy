@@ -1,5 +1,5 @@
 theory Calls
-  imports "reassembly_setup.Leviathan_Setup"
+  imports "../x86-64_parser/Leviathan_Setup"
           "Det_Step"
 begin
 

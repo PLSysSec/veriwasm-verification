@@ -15,7 +15,7 @@
  *)
 
 theory BitVector_Rewriting
-  imports reassembly_rewriting.Take_Bits_Rewriting reassembly_manual_execution.BitVectors
+  imports Take_Bits_Rewriting BitVectors
 begin
 
 

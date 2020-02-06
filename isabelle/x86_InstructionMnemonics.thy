@@ -15,7 +15,7 @@
  *)
 
 theory x86_InstructionMnemonics
-  imports "HOL-Word.WordBitwise" 
+  imports "HOL-Word.Word_Bitwise" 
 begin
 
 datatype instr_mnemonic_8088 =

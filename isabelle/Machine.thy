@@ -15,7 +15,7 @@
  *)
 
 theory Machine              
-  imports Word_Additions HOL.String reassembly_datatypes.MachineDatatypes 
+  imports Word_Additions HOL.String MachineDatatypes 
 begin          
 
 section "Semantics of X86 assembly"

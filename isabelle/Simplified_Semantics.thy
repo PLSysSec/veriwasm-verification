@@ -18,7 +18,7 @@
 (* TODO: this file can be removed from this branch, has been incoroporated into branch "presimplify" *)
 
 theory Simplified_Semantics
-  imports "reassembly_all.Leviathan_Setup"
+  imports "../x86-64_parser/Leviathan_Setup"
 begin
 
 

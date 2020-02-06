@@ -16,7 +16,7 @@
 
 theory Chum_Rewriting
   imports
-      reassembly_rewriting.Memory_Rewriting
+      Memory_Rewriting
       Chum_Execution
       BitVector_Rewriting
 begin

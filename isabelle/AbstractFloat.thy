@@ -15,7 +15,7 @@
  *)
 
 theory AbstractFloat
-  imports reassembly_machine.Machine
+  imports Machine
 begin
 
 
