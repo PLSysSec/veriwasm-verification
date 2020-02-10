@@ -16,7 +16,7 @@
 
 theory Word_Additions
   imports SymbolicRewriting
-      "HOL-Word.Word_Bitwise"
+      "HOL-Word.WordBitwise"
 begin
 
 section "Extensions to the Word library"

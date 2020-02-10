@@ -15,7 +15,7 @@
  *)
 
 theory MachineDatatypes 
-imports "HOL-Word.Word_Bitwise" x86_InstructionMnemonics
+imports "HOL-Word.WordBitwise" x86_InstructionMnemonics
 begin          
 
 section "Semantics of X86 assembly"

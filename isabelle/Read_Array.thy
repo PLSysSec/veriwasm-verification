@@ -1,5 +1,5 @@
 theory Read_Array
-  imports "../x86-64_parser/Leviathan_Setup"
+  imports "reassembly_setup.Leviathan_Setup"
 
 begin
 context execution_context

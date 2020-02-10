@@ -1047,7 +1047,7 @@ proof-
   thus ?thesis
     using assms
     apply (intro nth_equalityI)
-     apply (auto)
+    by (auto)
 qed
 
 

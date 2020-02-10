@@ -1,5 +1,5 @@
 theory Presimplified_Semantics_Manual
-  imports "../x86-64_parser/Leviathan_Setup"
+  imports "reassembly_setup.Leviathan_Setup"
 begin
 
 (*5 flags generation CF,SF,OF,ZF,PF *)

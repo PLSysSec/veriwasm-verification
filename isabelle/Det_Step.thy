@@ -1,5 +1,5 @@
 theory Det_Step
-  imports Main "HOL-Eisbach.Eisbach"
+  imports Main reassembly_rewriting.Eisbach
 begin
 
 text {*

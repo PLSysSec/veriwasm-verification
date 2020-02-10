@@ -1,5 +1,5 @@
 theory Presimplified_Semantics_Manual2
-  imports Presimplified_Semantics
+  imports reassembly_all.Presimplified_Semantics
 begin
 
 (* This file contains instructions for which we unecessarily use manual semantics

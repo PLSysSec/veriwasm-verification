@@ -130,10 +130,10 @@ fun manual_exec_nullary_instr  :: "assembly \<Rightarrow> instr_mnemonic \<Right
   where
     "manual_exec_nullary_instr \<alpha> i s \<sigma> = (
         case i of (IS_80188 Leave) \<Rightarrow>
-        (let' 
+        (let' (* first, move rbp to rsp *)
              (d,_) = read_reg \<sigma> (General SixtyFour rbp);
              \<sigma> = put \<alpha> (Reg (General SixtyFour rsp)) d \<sigma> ;
-            
+             (* then pop rbp *)
              (d,_) = read_memory \<alpha> \<sigma> 64 (A_FromReg (General SixtyFour rsp));
              \<sigma> = put \<alpha> (Reg (General SixtyFour rbp)) d \<sigma>;
              (d,_) = read_reg \<sigma> (General SixtyFour rsp);
@@ -153,20 +153,20 @@ primrec (nonexhaustive) manual_exec_unary_instr_IS_8088  :: "assembly \<Rightarr
   where
     "manual_exec_unary_instr_IS_8088 \<alpha> Push st s \<sigma> = 
                (case st of (Storage ((Reg reg))) \<Rightarrow>
-                (let'                                  
+                (let' (* first, decrement the stack pointer *)                                 
                   (d,_) = read_reg \<sigma> (General SixtyFour rsp);
                   \<sigma> = put \<alpha> (Reg (General SixtyFour rsp)) (d - (of_nat (get_size_of_reg reg div 8))) \<sigma> ;
-                
+                  (* then, move the value from the reg to that address *)
                   (d,s0) = read_reg \<sigma> reg;
                   \<sigma> = put \<alpha> (Memory (nat_to_bit_mask s0) (A_FromReg (General SixtyFour rsp))) d \<sigma>
                 in
                 incr_rip s \<sigma>))"
   | "manual_exec_unary_instr_IS_8088 \<alpha> Pop st s \<sigma> = 
                 (case st of (Storage ((Reg reg))) \<Rightarrow>
-                  (let' 
+                  (let' (* first, move the value from the address to the reg *)
                     (d,_) = read_memory \<alpha> \<sigma> (get_size_of_reg reg)  (A_FromReg (General SixtyFour rsp));
                     \<sigma> = put \<alpha> (Reg (reg)) d \<sigma>;
-                    
+                    (* then, increment the stack pointer *)
                     (d,_) = read_reg \<sigma> (General SixtyFour rsp) ;
                     \<sigma> = put \<alpha> (Reg (General SixtyFour rsp)) (d + (of_nat (get_size_of_reg reg div 8))) \<sigma>
                   in incr_rip s \<sigma>))"      
@@ -286,7 +286,7 @@ primrec (nonexhaustive) manual_exec_binary_instr_IS_8088 :: "assembly \<Rightarr
   |  "manual_exec_binary_instr_IS_8088 \<alpha> Sub dst src s \<sigma> = apply_binop \<alpha>  (-) None dst src s \<sigma>"
   |  "manual_exec_binary_instr_IS_8088 \<alpha> Shl dst src s \<sigma> = apply_binop \<alpha>  (\<lambda> x y . x << unat y) None dst src s \<sigma>"
   |  "manual_exec_binary_instr_IS_8088 \<alpha> Shr dst src s \<sigma> = apply_binop \<alpha>  (\<lambda> x y . x >> unat y) None dst src s \<sigma>"
-  |  "manual_exec_binary_instr_IS_8088 \<alpha> Imul dst src s \<sigma> = apply_binop \<alpha> (*) None dst src s \<sigma>"
+  |  "manual_exec_binary_instr_IS_8088 \<alpha> Imul dst src s \<sigma> = apply_binop \<alpha> ( *) None dst src s \<sigma>"
   | "manual_exec_binary_instr_IS_8088 \<alpha> Sar dst src s \<sigma> =
   (case (dst,src) of (Reg (General ThirtyTwo _), (Storage (Reg (General EightLow _)))) \<Rightarrow>
               (let' (d1,_) = data_from_src \<alpha> \<sigma> src;
@@ -415,7 +415,7 @@ primrec (nonexhaustive) manual_exec_binary_instr_IS_SSE2_SIMD :: "assembly \<Rig
               in incr_rip s \<sigma>))"
       |  "manual_exec_binary_instr_IS_SSE2_SIMD \<alpha> Mulsd dst src s \<sigma> =
           (case dst of (Reg (SIMD OneHundredTwentyEight _ _ dsth dstl)) \<Rightarrow> case src of (Storage (Reg (SIMD OneHundredTwentyEight _ _ srch srcl))) \<Rightarrow>
-                    (apply_binop \<alpha> (*\<^sup>f) None (Reg (General SixtyFour dstl)) (Storage (Reg (General SixtyFour srcl))) s \<sigma>))"
+                    (apply_binop \<alpha> ( *\<^sup>f) None (Reg (General SixtyFour dstl)) (Storage (Reg (General SixtyFour srcl))) s \<sigma>))"
       |  "manual_exec_binary_instr_IS_SSE2_SIMD \<alpha> Divsd dst src s \<sigma> =
           (case dst of (Reg (SIMD OneHundredTwentyEight _ _ dsth dstl)) \<Rightarrow> case src of (Storage (Reg (SIMD OneHundredTwentyEight _ _ srch srcl))) \<Rightarrow>
                     (apply_binop \<alpha> (div\<^sup>f) None (Reg (General SixtyFour dstl)) (Storage (Reg (General SixtyFour srcl))) s \<sigma>))"

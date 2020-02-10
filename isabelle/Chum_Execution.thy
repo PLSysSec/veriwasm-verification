@@ -15,7 +15,7 @@
  *)
 
 theory Chum_Execution              
-imports Manual_Execution
+imports reassembly_manual_execution.Manual_Execution
 begin
 
 context execution_context
