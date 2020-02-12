@@ -29,32 +29,32 @@ fun run_instr :: "instr_class \<Rightarrow> state \<Rightarrow> state"
        update_flags f (write_reg reg data \<sigma>))"
   | "run_instr (Mem_Write reg bv f) \<sigma> =
     (let loc = fst (read_reg \<sigma> reg);
-         data = (bytes_of 0 64 (\<langle>63,0\<rangle>fst bv)) in
-       update_flags f (\<sigma>\<lparr>mem := write_bytes (loc, data) (mem \<sigma>)\<rparr>))"
+         data = (bytes_of 0 64 (fst bv)) in
+       update_flags f (\<sigma>\<lparr>mem := write_bytes (loc, data) (mem \<sigma>)\<rparr>))" 
   | "run_instr (Bounds_Check reg f) \<sigma> =
     (let data =  (fst (read_reg \<sigma> reg) AND mask 32) in
-       update_flags f (write_reg reg data \<sigma>))"
-  | "run_instr (Branch addrs f) \<sigma> = update_flags f \<sigma>"
-  | "run_instr (Reg_Write reg bv f) \<sigma> = update_flags f (write_reg reg (\<langle>63,0\<rangle>fst bv) \<sigma>)"
+       update_flags f (write_reg reg data \<sigma>))" 
+  | "run_instr (Branch addrs f) \<sigma> = update_flags f \<sigma>" 
+  | "run_instr (Reg_Write reg bv f) \<sigma> = update_flags f (write_reg reg (\<langle>63,0\<rangle>fst bv) \<sigma>)" 
   | "run_instr (Stack_Expand i f) \<sigma> =
     (let rsp_reg = General SixtyFour rsp;
          loc = (fst (read_reg \<sigma> rsp_reg)) + (word_of_int i) in
-       update_flags f (write_reg rsp_reg loc \<sigma>))"
+       update_flags f (write_reg rsp_reg loc \<sigma>))" 
   | "run_instr (Stack_Contract i f) \<sigma> =
     (let rsp_reg = General SixtyFour rsp;
          loc = (fst (read_reg \<sigma> rsp_reg)) - (word_of_int i) in
-       update_flags f (write_reg rsp_reg loc \<sigma>))"
+       update_flags f (write_reg rsp_reg loc \<sigma>))" 
   | "run_instr (Stack_Read reg i f) \<sigma> =
     (let rbp_reg = General SixtyFour rbp;
          loc = (fst (read_reg \<sigma> rbp_reg)) + (word_of_int i);
          data = (cat_bytes (read_bytes (mem \<sigma>) (loc, 64))) in
-       update_flags f (write_reg reg data \<sigma>))"
+       update_flags f (write_reg reg data \<sigma>))" 
   | "run_instr (Stack_Write i bv f) \<sigma> = 
     (let rbp_reg = General SixtyFour rbp;
          loc = (fst (read_reg \<sigma> rbp_reg)) + (word_of_int i);
-         data = (bytes_of 0 64 (\<langle>63,0\<rangle>fst bv)) in
-       update_flags f (\<sigma>\<lparr>mem := (write_bytes (loc, data) (mem \<sigma>))\<rparr>))"
+         data = (word_to_bytes (fst bv) 64) in
+       update_flags f (\<sigma>\<lparr>mem := (write_bytes (loc, data) (mem \<sigma>))\<rparr>))" 
   | "run_instr (Ret f) \<sigma> = update_flags f \<sigma>"
-  | "run_instr (Call f) \<sigma> = update_flags f \<sigma>"
+  | "run_instr (Call f) \<sigma> = update_flags f \<sigma>" 
 
 end
