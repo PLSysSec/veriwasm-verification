@@ -17,6 +17,12 @@ datatype instr_class =
   | Ret flags_t
   | Call flags_t
 
+type_synonym cfg_node = "instr_class list"
+
+record cfg =
+  vertices :: "instr_class list"
+  edges :: "(instr_class * instr_class)"
+
 (* fun write_reg :: "register \<Rightarrow> 64 word \<Rightarrow> state \<Rightarrow> state" *)
 
 fun update_flags :: "flags_t \<Rightarrow> state \<Rightarrow> state"
@@ -55,6 +61,34 @@ fun run_instr :: "instr_class \<Rightarrow> state \<Rightarrow> state"
          data = (word_to_bytes (fst bv) 64) in
        update_flags f (\<sigma>\<lparr>mem := (write_bytes (loc, data) (mem \<sigma>))\<rparr>))" 
   | "run_instr (Ret f) \<sigma> = update_flags f \<sigma>"
-  | "run_instr (Call f) \<sigma> = update_flags f \<sigma>" 
+  | "run_instr (Call f) \<sigma> = update_flags f \<sigma>"
+
+definition lower_mem_bound :: "64 word" where "lower_mem_bound = word_of_int 0"
+definition upper_mem_bound :: "64 word" where "upper_mem_bound = word_of_int 2^32"
+
+definition address_in_safe_region :: "64 word \<Rightarrow> bool"
+  where "address_in_safe_region addr =
+    ((addr \<ge> lower_mem_bound) \<and> (addr < upper_mem_bound))"
+
+definition register_points_safe_region :: "register \<Rightarrow> state \<Rightarrow> bool"
+  where "register_points_safe_region reg \<sigma> =
+    address_in_safe_region (fst (read_reg \<sigma> reg))"
+
+fun instr_class_mem_safe :: "instr_class \<Rightarrow> state \<Rightarrow> bool"
+  where
+    (*TODO: This is incorrect; needs to be updated once we change what
+            addresses Mem_Read can access (not just literals)*)
+    "instr_class_mem_safe (Mem_Read reg bv f) \<sigma> = True"
+  | "instr_class_mem_safe (Mem_Write reg _ _) \<sigma> =
+    register_points_safe_region reg \<sigma>"
+  | "instr_class_mem_safe _ _ = True"
+
+lemma mask_bounds:
+  "w AND (mask 32) \<longrightarrow> ((w \<ge> 0) \<and> (w < word_of_int 2^32))"
+
+lemma bounds_check_makes_reg_safe:
+  "run_instr (Bounds_Check r f) \<sigma> = \<sigma>' \<longrightarrow>
+   register_points_safe_region r \<sigma>'"
+  by auto
 
 end
