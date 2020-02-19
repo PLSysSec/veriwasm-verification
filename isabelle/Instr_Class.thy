@@ -84,7 +84,8 @@ fun instr_class_mem_safe :: "instr_class \<Rightarrow> state \<Rightarrow> bool"
   | "instr_class_mem_safe _ _ = True"
 
 lemma mask_bounds:
-  "w AND (mask 32) \<longrightarrow> ((w \<ge> 0) \<and> (w < word_of_int 2^32))"
+  "w AND (mask 32) = w' \<longrightarrow> ((w' \<ge> 0) \<and> (w' < word_of_int 2^32))"
+  by auto
 
 lemma bounds_check_makes_reg_safe:
   "run_instr (Bounds_Check r f) \<sigma> = \<sigma>' \<longrightarrow>
