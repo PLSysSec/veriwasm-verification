@@ -23,6 +23,9 @@ record cfg =
   vertices :: "instr_class list"
   edges :: "(instr_class * instr_class)"
 
+definition heap_base :: "64 word" where "heap_base = word_of_int 0"
+definition heap_size :: "64 word" where "heap_size = word_of_int 2^32"
+
 (* fun write_reg :: "register \<Rightarrow> 64 word \<Rightarrow> state \<Rightarrow> state" *)
 
 fun update_flags :: "flags_t \<Rightarrow> state \<Rightarrow> state"
@@ -38,7 +41,8 @@ fun run_instr :: "instr_class \<Rightarrow> state \<Rightarrow> state"
          data = (bytes_of 0 64 (fst bv)) in
        update_flags f (\<sigma>\<lparr>mem := write_bytes (loc, data) (mem \<sigma>)\<rparr>))" 
   | "run_instr (Bounds_Check reg f) \<sigma> =
-    (let data =  (fst (read_reg \<sigma> reg) AND mask 32) in
+    (let reg_location = (fst (read_reg \<sigma> reg));
+         data = ((reg_location - heap_base) mod heap_size) + heap_base in
        update_flags f (write_reg reg data \<sigma>))" 
   | "run_instr (Branch addrs f) \<sigma> = update_flags f \<sigma>" 
   | "run_instr (Reg_Write reg bv f) \<sigma> = update_flags f (write_reg reg (\<langle>63,0\<rangle>fst bv) \<sigma>)" 
@@ -63,12 +67,9 @@ fun run_instr :: "instr_class \<Rightarrow> state \<Rightarrow> state"
   | "run_instr (Ret f) \<sigma> = update_flags f \<sigma>"
   | "run_instr (Call f) \<sigma> = update_flags f \<sigma>"
 
-definition lower_mem_bound :: "64 word" where "lower_mem_bound = word_of_int 0"
-definition upper_mem_bound :: "64 word" where "upper_mem_bound = word_of_int 2^32"
-
 definition address_in_safe_region :: "64 word \<Rightarrow> bool"
   where "address_in_safe_region addr =
-    ((addr \<ge> lower_mem_bound) \<and> (addr < upper_mem_bound))"
+    ((addr \<ge> heap_base) \<and> (addr < (heap_base + heap_size)))"
 
 definition register_points_safe_region :: "register \<Rightarrow> state \<Rightarrow> bool"
   where "register_points_safe_region reg \<sigma> =
@@ -83,8 +84,18 @@ fun instr_class_mem_safe :: "instr_class \<Rightarrow> state \<Rightarrow> bool"
     register_points_safe_region reg \<sigma>"
   | "instr_class_mem_safe _ _ = True"
 
+lemma mod_arithmetic:
+  "(a::64 word) mod b = a' \<longrightarrow> a \<ge> 0"
+  by auto
+
+lemma first_mask_bound:
+  "(((a::64 word) - heap_base) mod heap_size) + heap_base = a' \<longrightarrow>
+   (a \<ge> heap_base)"
+  by auto
+
 lemma mask_bounds:
-  "w AND (mask 32) = w' \<longrightarrow> ((w' \<ge> 0) \<and> (w' < word_of_int 2^32))"
+  "((a - heap_base) mod heap_size) + heap_base = a' \<longrightarrow>
+   ((a \<ge> heap_base) \<and> (a < heap_base + heap_size))"
   by auto
 
 lemma bounds_check_makes_reg_safe:
