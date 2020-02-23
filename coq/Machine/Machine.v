@@ -1,13 +1,13 @@
 Require Import Coq.FSets.FMapList.
 Require Import Coq.Lists.List.
-(* Require Import Coq.Vectors.Vector.*)
+(*Require Import Coq.Vectors.Vector.*)
 (*Require Import SFI.Machine.Bits.*)
-Require Import bbv.Word.
+(*Require Import bbv.Word.*)
 
-Notation word1 := (word 1).
+(*Notation word1 := (word 1).
 Notation word8 := (word 8).
 Notation word64 := (word 64).
-Notation wzero8 := (wzero 8).
+Notation wzero8 := (wzero 8).*)
 
 Inductive register : Set :=
 | Rax
@@ -55,7 +55,9 @@ Definition get A B (f:fmap A B) (x:A) : B :=
 
 Definition registers_ty := fmap register info.
 
-Definition stack_ty := list info.
+Definition frame_ty := list info.
+
+Definition stack_ty := list frame_ty.
 
 Definition heap_ty := list info.
 
@@ -64,9 +66,17 @@ Definition heap_ty := list info.
 Record state := {
   regs : registers_ty;
 (*  flags : flags_ty; *)
+  frame : frame_ty;
   stack : stack_ty;
   heap : heap_ty;
 }.
+
+Definition empty_state :=
+{| regs := fun _ => unbounded;
+   frame := nil;
+   stack := nil;
+   heap := nil |}.
+
 (*
 Inductive value : Set :=
 | A_Reg : register -> value
@@ -107,7 +117,8 @@ Definition set_flags (s : machine) (f : flags_ty) : machine :=
 Definition expand_stack (s : state) (i : nat) : state :=
 {| regs := s.(regs);
 (*   flags := s.(flags); *)
-   stack := s.(stack) ++ (repeat unbounded i);
+   frame := s.(frame) ++ (repeat unbounded i);
+   stack := s.(stack);
    heap := s.(heap) |}.
 
 Fixpoint contract_stack (s : state) (i : nat) : state :=
@@ -116,7 +127,8 @@ match i with
 | S n =>
 contract_stack {| regs := s.(regs);
 (*   flags := s.(flags); *)
-   stack := removelast s.(stack);
+   frame := removelast s.(frame);
+   stack := s.(stack);
    heap := s.(heap) |} n
 end.
 
@@ -158,24 +170,46 @@ Definition get_register_info (s : state) (r : register) : info :=
 
 Definition set_register_info (s : state) (r : register) (i : info) : state :=
 {| regs := set register register_eq_dec info s.(regs) r i;
+   frame := s.(frame);
    stack := s.(stack);
    heap := s.(heap) |}.
 
 Definition get_stack_info (s : state) (index : nat) : info :=
-nth index s.(stack) unbounded.
+nth index s.(frame) unbounded.
+
+Definition pop_frame (s : state) : state :=
+{| regs := s.(regs);
+   frame := last s.(stack) nil;
+   stack := tail s.(stack);
+   heap := s.(heap) |}.
+
+Definition push_frame (s : state) : state :=
+{| regs := s.(regs);
+   frame := nil;
+   stack := s.(frame) :: s.(stack);
+   heap := s.(heap) |}.
+
+Fixpoint update {A} (l : list A) (i : nat) (v : A) : list A :=
+match l, i with
+| nil , _ => l
+| h :: t, 0 => v :: t
+| h :: t, S i' => update t i' v
+end.
 
 (* this needs to be updated *)
 Definition set_stack_info (s : state) (index : nat) (i : info) : state :=
-s.
-
+{| regs := s.(regs);
+   frame := update s.(frame) index i;
+   stack := s.(stack);
+   heap := s.(heap) |}.
 
 Inductive instr_class := 
 | Heap_Read : register -> register -> instr_class
 | Heap_Write : register -> register -> instr_class
-| Heap_Bounds_Check : register -> instr_class
+| Heap_Check : register -> instr_class
 (*| Branch : flags_ty -> instr_class*)
-| CF_Bounds_Check : register -> instr_class
-| Reg_Write : register -> register -> instr_class
+| CF_Check : register -> instr_class
+| Reg_Write : register (*-> register *)-> instr_class
 | Stack_Expand : nat -> instr_class
 | Stack_Contract : nat -> instr_class
 | Stack_Read : register -> nat -> instr_class
@@ -183,34 +217,37 @@ Inductive instr_class :=
 | Ret : instr_class
 | Call : instr_class.
 
-
+Reserved Notation " st '|-' i  '-->' st' "
+                  (at level 40, st' at level 39).
 Inductive instr_class_step : instr_class -> state -> state -> Prop := 
-| I_Heap_Read: ∀st,
-     instr_class_step (Heap_Read r_dst r_src) st 
-| I_Heap_Write r_dst r_src => s
-| I_Heap_Bounds_Check r_src => s
-| I_CF_Bounds_Check r_src =>
-| I_Reg_Write r_dst r_src => s
-| I_Stack_Expand i => expand_stack s i
-| I_Stack_Contract i => contract_stack s i
-| I_Stack_Read r_dst i => write_register s r  
-| I_Stack_Write i r_src => s
-| I_Ret => s
-| I_Call => s
-end.
+| I_Heap_Read: forall st r_src r_dst,
+    get_register_info st r_src = mem_bounded ->
+      instr_class_step (Heap_Read r_dst r_src) st (set_register_info st r_dst unbounded) 
+| I_Heap_Write: forall st r_src r_dst,
+    get_register_info st r_src = mem_bounded -> 
+      instr_class_step (Heap_Write r_dst r_src) st st
+| I_Heap_Check: forall st r_src,
+(*    get_register_info st r_src = mem_bounded -> *)
+      instr_class_step (Heap_Check r_src) st (set_register_info st r_src mem_bounded)
+| I_CF_Check: forall st r_src,
+(*    get_register_info st r_src = cf_bounded -> *)
+      instr_class_step (CF_Check r_src) st (set_register_info st r_src cf_bounded)
+| I_Reg_Write: forall st r_dst,
+      instr_class_step (Reg_Write r_dst) st (set_register_info st r_dst unbounded)
+| I_Stack_Expand: forall st i,
+      instr_class_step (Stack_Expand i) st (expand_stack st i)
+| I_Stack_Contract: forall st i,
+      instr_class_step (Stack_Contract i) st (contract_stack st i)
+| I_Stack_Read: forall st i r_dst,
+      instr_class_step (Stack_Read r_dst i) st (set_register_info st r_dst (get_stack_info st i))
+| I_Stack_Write: forall st i r_src,
+      instr_class_step (Stack_Write i r_src) st (set_stack_info st i (get_register_info st r_src))
+| I_Ret: forall st,
+      instr_class_step (Ret) st (pop_frame st)
+| I_Call: forall st,
+      instr_class_step (Call) st (push_frame st)
+  where " st '|-' i '-->' st' " := (instr_class_step i st st').
 
+Definition terminates (instrs : list instr_class) : Prop :=
+  exists st, fold_left instr_class_step empty_state instrs = st.
 
-Definition run_instr (inst : instr_class) (s : machine) : machine := 
-  match inst with 
-| Heap_Read r_dst r_src => s
-| Heap_Write r_dst r_src => s
-| Heap_Bounds_Check r_src => s
-| CF_Bounds_Check r_src =>
-| Reg_Write r_dst r_src => s
-| Stack_Expand i => expand_stack s i
-| Stack_Contract i => contract_stack s i
-| Stack_Read r_dst i => write_register s r  
-| Stack_Write i r_src => s
-| Ret => s
-| Call => s
-end.
