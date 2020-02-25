@@ -253,9 +253,12 @@ Inductive instr_class_step : instr_class -> state -> state -> Prop :=
       instr_class_step (Call) st (push_frame st)
   where " st '|-' i '-->' st' " := (instr_class_step i st st').
 
-Inductive cfg_ty :=
-| edge: list instr_class -> list instr_class -> cfg.
+Definition cfg_node := list instr_class.
 
+Record cfg_ty := {
+  nodes : list cfg_node;
+  edges : list (cfg_node * cfg_node)
+}.
 
 Theorem sfi_property: forall (cfg : cfg_ty) exists st,
   (* local properties -> *)
