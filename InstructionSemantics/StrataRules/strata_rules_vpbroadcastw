@@ -1,2 +1,0 @@
-(vpbroadcastw xmm, xmm) -> (OP1 = 0x0_128 o (OP2[15:0] o OP2[15:0] o (OP2[15:0] o OP2[15:0]) o (OP2[15:0] o OP2[15:0]) o (OP2[15:0] o OP2[15:0])))
-(vpbroadcastw ymm, xmm) -> (OP1 = OP2[15:0] o OP2[15:0] o (OP2[15:0] o OP2[15:0]) o (OP2[15:0] o OP2[15:0] o (OP2[15:0] o OP2[15:0])) o (OP2[15:0] o OP2[15:0] o (OP2[15:0] o OP2[15:0]) o (OP2[15:0] o OP2[15:0] o (OP2[15:0] o OP2[15:0]))))

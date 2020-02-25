@@ -1,6 +1,0 @@
-(cmovz r32, r32) -> (OP1 = 0x0_32 o (ZF ? OP2[31:0] : OP1[31:0]))
-(cmovz r32, m32) -> (OP1 = 0x0_32 o (ZF ? OP2[31:0] : OP1[31:0]))
-(cmovz r64, r64) -> (OP1 = ZF ? OP2 : OP1)
-(cmovz r64, m64) -> (OP1 = ZF ? OP2 : OP1)
-(cmovz r16, r16) -> (OP1 = OP1[63:16] o (ZF ? OP2[15:0] : OP1[15:0]))
-(cmovz r16, m16) -> (OP1 = OP1[63:16] o (ZF ? OP2[15:0] : OP1[15:0]))

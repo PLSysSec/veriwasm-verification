@@ -1,1 +1,0 @@
-(vmovss xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP2[127:32] o OP3[31:0]))

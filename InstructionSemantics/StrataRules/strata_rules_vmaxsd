@@ -1,2 +1,0 @@
-(vmaxsd xmm, xmm, m64) -> (OP1 = 0x0_128 o (OP2[127:64] o (maxcmp_double(OP2[63:0], OP3[63:0]) == 0x1_1 ? OP2[63:0] : OP3[63:0])))
-(vmaxsd xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP2[127:64] o (maxcmp_double(OP2[63:0], OP3[63:0]) == 0x1_1 ? OP2[63:0] : OP3[63:0])))

@@ -1,2 +1,0 @@
-(movsldup xmm, m128) -> (OP1 = OP1[255:128] o (OP2[95:64] o OP2[95:64] o (OP2[31:0] o OP2[31:0])))
-(movsldup xmm, xmm) -> (OP1 = OP1[255:128] o (OP2[95:64] o OP2[95:64] o (OP2[31:0] o OP2[31:0])))

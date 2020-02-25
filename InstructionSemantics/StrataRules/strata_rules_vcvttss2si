@@ -1,2 +1,0 @@
-(vcvttss2si r32, m32) -> (OP1 = 0x0_32 o cvt_single_to_int32_truncate(OP2[31:0]))
-(vcvttss2si r32, xmm) -> (OP1 = 0x0_32 o cvt_single_to_int32_truncate(OP2[31:0]))

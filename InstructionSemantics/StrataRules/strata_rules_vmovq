@@ -1,5 +1,0 @@
-(vmovq r64, xmm) -> (OP1 = OP2[63:0])
-(vmovq m64, xmm) -> (OP1 = (OP2[63:0])[63:0])
-(vmovq xmm, r64) -> (OP1 = 0x0_128 o (0x0_64 o (0x0_64 ^ OP2)))
-(vmovq xmm, m64) -> (OP1 = 0x0_128 o (0x0_64 o (0x0_64 ^ OP2)))
-(vmovq xmm, xmm) -> (OP1 = 0x0_128 o (0x0_64 o OP2[63:0]))

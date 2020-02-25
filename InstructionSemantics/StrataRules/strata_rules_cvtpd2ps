@@ -1,2 +1,0 @@
-(cvtpd2ps xmm, m128) -> (OP1 = OP1[255:128] o (OP1[127:64] o (cvt_double_to_single(OP2[127:64]) o cvt_double_to_single(OP2[63:0]))))
-(cvtpd2ps xmm, xmm) -> (OP1 = OP1[255:128] o (OP1[127:64] o (cvt_double_to_single(OP2[127:64]) o cvt_double_to_single(OP2[63:0]))))

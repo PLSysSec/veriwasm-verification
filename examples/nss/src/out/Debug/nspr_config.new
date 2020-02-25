@@ -1,7 +1,0 @@
-CC=
-CCC=
-CXX=
---enable-64bit
-nspr_cflags=
-nspr_cxxflags=
-nspr_ldflags=-L/usr/local/lib

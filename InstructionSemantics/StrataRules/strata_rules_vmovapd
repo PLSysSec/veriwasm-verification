@@ -1,6 +1,0 @@
-(vmovapd m128, xmm) -> (OP1 = (0x0_128 o OP2[127:0])[127:0])
-(vmovapd m256, ymm) -> (OP1 = (OP2)[255:0])
-(vmovapd xmm, m128) -> (OP1 = 0x0_128 o OP2[127:0])
-(vmovapd xmm, xmm) -> (OP1 = 0x0_128 o OP2[127:0])
-(vmovapd ymm, m256) -> (OP1 = OP2)
-(vmovapd ymm, ymm) -> (OP1 = OP2)

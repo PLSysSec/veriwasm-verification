@@ -1,2 +1,0 @@
-(vbroadcastsd ymm, m64) -> (OP1 = OP2[63:0] o OP2[63:0] o OP2[63:0] o OP2[63:0])
-(vbroadcastsd ymm, xmm) -> (OP1 = OP2[63:0] o OP2[63:0] o OP2[63:0] o OP2[63:0])

@@ -1,6 +1,0 @@
-(cmovng r32, r32) -> (OP1 = 0x0_32 o (ZF bool_or !(SF bool_iff OF) ? OP2[31:0] : OP1[31:0]))
-(cmovng r32, m32) -> (OP1 = 0x0_32 o (ZF bool_or !(SF bool_iff OF) ? OP2[31:0] : OP1[31:0]))
-(cmovng r64, r64) -> (OP1 = ZF bool_or !(SF bool_iff OF) ? OP2 : OP1)
-(cmovng r64, m64) -> (OP1 = ZF bool_or !(SF bool_iff OF) ? OP2 : OP1)
-(cmovng r16, r16) -> (OP1 = OP1[63:16] o (ZF bool_or !(SF bool_iff OF) ? OP2[15:0] : OP1[15:0]))
-(cmovng r16, m16) -> (OP1 = OP1[63:16] o (ZF bool_or !(SF bool_iff OF) ? OP2[15:0] : OP1[15:0]))

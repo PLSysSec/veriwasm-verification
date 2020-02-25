@@ -1,1 +1,0 @@
-(cbw) -> (RAX = RAX[63:16] o sign-extend-16(RAX[7:0]))

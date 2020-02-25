@@ -1,2 +1,0 @@
-(sarx r64, r64, r64) -> (OP1 = (OP2 o 0x0_1 sign_shift_right 0x0_57 o (OP3[7:0] & 0x3f_8))[64:1])
-(sarx r64, m64, r64) -> (OP1 = (OP2 o 0x0_1 sign_shift_right 0x0_57 o (OP3[7:0] & 0x3f_8))[64:1])

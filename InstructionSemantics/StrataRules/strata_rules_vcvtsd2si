@@ -1,2 +1,0 @@
-(vcvtsd2si r32, m64) -> (OP1 = 0x0_32 o cvt_double_to_int32(OP2[63:0]))
-(vcvtsd2si r32, xmm) -> (OP1 = 0x0_32 o cvt_double_to_int32(OP2[63:0]))

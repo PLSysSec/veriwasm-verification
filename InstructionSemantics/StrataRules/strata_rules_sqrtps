@@ -1,2 +1,0 @@
-(sqrtps xmm, m128) -> (OP1 = OP1[255:128] o (sqrt_single(OP2[127:96]) o (sqrt_single(OP2[95:64]) o (sqrt_single(OP2[63:32]) o sqrt_single(OP2[31:0])))))
-(sqrtps xmm, xmm) -> (OP1 = OP1[255:128] o (sqrt_single(OP2[127:96]) o (sqrt_single(OP2[95:64]) o (sqrt_single(OP2[63:32]) o sqrt_single(OP2[31:0])))))

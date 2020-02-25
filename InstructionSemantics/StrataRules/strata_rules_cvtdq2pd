@@ -1,2 +1,0 @@
-(cvtdq2pd xmm, m64) -> (OP1 = OP1[255:128] o (cvt_int32_to_double(OP2[63:32]) o cvt_int32_to_double(OP2[31:0])))
-(cvtdq2pd xmm, xmm) -> (OP1 = OP1[255:128] o (cvt_int32_to_double(OP2[63:32]) o cvt_int32_to_double(OP2[31:0])))

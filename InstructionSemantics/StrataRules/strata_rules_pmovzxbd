@@ -1,2 +1,0 @@
-(pmovzxbd xmm, m32) -> (OP1 = OP1[255:128] o (0x0_24 o OP2[31:24] o (0x0_24 o OP2[23:16] o (0x0_24 o OP2[15:8] o (0x0_24 o OP2[7:0])))))
-(pmovzxbd xmm, xmm) -> (OP1 = OP1[255:128] o (0x0_24 o OP2[31:24] o (0x0_24 o OP2[23:16] o (0x0_24 o OP2[15:8] o (0x0_24 o OP2[7:0])))))

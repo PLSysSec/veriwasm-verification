@@ -1,2 +1,0 @@
-(minpd xmm, m128) -> (OP1 = OP1[255:128] o ((mincmp_double(OP1[127:64], OP2[127:64]) == 0x1_1 ? OP1[127:64] : OP2[127:64]) o (mincmp_double(OP1[63:0], OP2[63:0]) == 0x1_1 ? OP1[63:0] : OP2[63:0])))
-(minpd xmm, xmm) -> (OP1 = OP1[255:128] o ((mincmp_double(OP1[127:64], OP2[127:64]) == 0x1_1 ? OP1[127:64] : OP2[127:64]) o (mincmp_double(OP1[63:0], OP2[63:0]) == 0x1_1 ? OP1[63:0] : OP2[63:0])))

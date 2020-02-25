@@ -1,3 +1,0 @@
-(movaps m128, xmm) -> (OP1 = (OP1[255:128] o OP2[127:0])[127:0])
-(movaps xmm, m128) -> (OP1 = OP1[255:128] o OP2[127:0])
-(movaps xmm, xmm) -> (OP1 = OP1[255:128] o OP2[127:0])

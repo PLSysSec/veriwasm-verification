@@ -1,4 +1,0 @@
-(vmovd r32, xmm) -> (OP1 = 0x0_32 o OP2[31:0])
-(vmovd m32, xmm) -> (OP1 = (0x0_32 o OP2[31:0])[31:0])
-(vmovd xmm, r32) -> (OP1 = 0x0_224 o OP2[31:24] o OP2[23:0])
-(vmovd xmm, m32) -> (OP1 = 0x0_224 o OP2[31:24] o OP2[23:0])

@@ -1,4 +1,0 @@
-(vfnmsub132pd xmm, xmm, m128) -> (OP1 = 0x0_32 o (0x0_32 o 0x0_64) o (vnfmsub132_double(OP1[127:64], OP2[127:64], OP3[127:64]) o vnfmsub132_double(OP1[63:0], OP2[63:0], OP3[63:0])))
-(vfnmsub132pd xmm, xmm, xmm) -> (OP1 = 0x0_32 o (0x0_32 o 0x0_64) o (vnfmsub132_double(OP1[127:64], OP2[127:64], OP3[127:64]) o vnfmsub132_double(OP1[63:0], OP2[63:0], OP3[63:0])))
-(vfnmsub132pd ymm, ymm, m256) -> (OP1 = vnfmsub132_double(OP1[255:192], OP2[255:192], OP3[255:192]) o (vnfmsub132_double(OP1[191:128], OP2[191:128], OP3[191:128]) o (vnfmsub132_double(OP1[127:64], OP2[127:64], OP3[127:64]) o vnfmsub132_double(OP1[63:0], OP2[63:0], OP3[63:0]))))
-(vfnmsub132pd ymm, ymm, ymm) -> (OP1 = vnfmsub132_double(OP1[255:192], OP2[255:192], OP3[255:192]) o (vnfmsub132_double(OP1[191:128], OP2[191:128], OP3[191:128]) o (vnfmsub132_double(OP1[127:64], OP2[127:64], OP3[127:64]) o vnfmsub132_double(OP1[63:0], OP2[63:0], OP3[63:0]))))

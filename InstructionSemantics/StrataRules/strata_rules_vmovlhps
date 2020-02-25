@@ -1,1 +1,0 @@
-(vmovlhps xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP3[63:0] o OP2[63:0]))

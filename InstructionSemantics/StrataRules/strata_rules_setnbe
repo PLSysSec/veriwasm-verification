@@ -1,3 +1,0 @@
-(setnbe rh) -> (OP1 = OP1[63:16] o (!CF bool_and !ZF ? 0x1_8 : 0x0_8) o OP1[7:0])
-(setnbe r8) -> (OP1 = OP1[63:8] o (!CF bool_and !ZF ? 0x1_8 : 0x0_8))
-(setnbe m8) -> (OP1 = (OP1[63:8] o (!CF bool_and !ZF ? 0x1_8 : 0x0_8))[7:0])

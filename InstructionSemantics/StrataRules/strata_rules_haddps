@@ -1,2 +1,0 @@
-(haddps xmm, m128) -> (OP1 = OP1[255:128] o (add_single(OP2[95:64], OP2[127:96]) o add_single(OP2[31:0], OP2[63:32]) o add_single(OP1[95:64], OP1[127:96]) o add_single(OP1[31:0], OP1[63:32])))
-(haddps xmm, xmm) -> (OP1 = OP1[255:128] o (add_single(OP2[95:64], OP2[127:96]) o add_single(OP2[31:0], OP2[63:32]) o add_single(OP1[95:64], OP1[127:96]) o add_single(OP1[31:0], OP1[63:32])))

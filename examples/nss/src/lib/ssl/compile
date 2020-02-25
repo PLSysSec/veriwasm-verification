@@ -1,3 +1,0 @@
-# to compile, first install NSPR: https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSPR
-# -L /usr/local/Cellar/nspr/4.20/lib/ 
-gcc -I ../smime/ -I ../nss/ -I ../util/ -I /usr/local/Cellar/nspr/4.20/include/nspr/ -I ../certdb/ -I ../cryptohi/ -I ../pk11wrap/ -I ../pkcs7/ -lnspr4 -lplc4 -lplds4 $1

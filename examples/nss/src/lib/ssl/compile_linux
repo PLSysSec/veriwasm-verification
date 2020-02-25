@@ -1,1 +1,0 @@
-gcc -I ../smime/ -I ../nss/ -I ../util/ -I /usr/local/Cellar/nspr/4.20/include/nspr/ -I ../certdb/ -I ../cryptohi/ -I ../pk11wrap/ -I ../pkcs7/ -I /usr/include/nspr/ -lnspr4 -lplc4 -lplds4 $1

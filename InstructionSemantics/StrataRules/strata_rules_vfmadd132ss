@@ -1,2 +1,0 @@
-(vfmadd132ss xmm, xmm, m32) -> (OP1 = 0x0_128 o (OP1[127:32] o vfmadd132_single(OP1[31:0], OP2[31:0], OP3[31:0])))
-(vfmadd132ss xmm, xmm, xmm) -> (OP1 = 0x0_128 o (OP1[127:32] o vfmadd132_single(OP1[31:0], OP2[31:0], OP3[31:0])))

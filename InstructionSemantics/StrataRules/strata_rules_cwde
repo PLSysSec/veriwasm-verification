@@ -1,1 +1,0 @@
-(cwde) -> (RAX = 0x0_32 o sign-extend-32(RAX[15:0]))

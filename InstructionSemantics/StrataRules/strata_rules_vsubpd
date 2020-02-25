@@ -1,4 +1,0 @@
-(vsubpd xmm, xmm, m128) -> (OP1 = 0x0_128 o (sub_double(OP2[127:64], OP3[127:64]) o sub_double(OP2[63:0], OP3[63:0])))
-(vsubpd xmm, xmm, xmm) -> (OP1 = 0x0_128 o (sub_double(OP2[127:64], OP3[127:64]) o sub_double(OP2[63:0], OP3[63:0])))
-(vsubpd ymm, ymm, m256) -> (OP1 = sub_double(OP2[255:192], OP3[255:192]) o (sub_double(OP2[191:128], OP3[191:128]) o (sub_double(OP2[127:64], OP3[127:64]) o sub_double(OP2[63:0], OP3[63:0]))))
-(vsubpd ymm, ymm, ymm) -> (OP1 = sub_double(OP2[255:192], OP3[255:192]) o (sub_double(OP2[191:128], OP3[191:128]) o (sub_double(OP2[127:64], OP3[127:64]) o sub_double(OP2[63:0], OP3[63:0]))))

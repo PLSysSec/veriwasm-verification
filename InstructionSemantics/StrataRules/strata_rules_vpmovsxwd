@@ -1,4 +1,0 @@
-(vpmovsxwd xmm, m64) -> (OP1 = 0x0_128 o (sign-extend-32(OP2[63:48]) o (sign-extend-32(OP2[47:32]) o (sign-extend-32(OP2[31:16]) o sign-extend-32(OP2[15:0])))))
-(vpmovsxwd xmm, xmm) -> (OP1 = 0x0_128 o (sign-extend-32(OP2[63:48]) o (sign-extend-32(OP2[47:32]) o (sign-extend-32(OP2[31:16]) o sign-extend-32(OP2[15:0])))))
-(vpmovsxwd ymm, m128) -> (OP1 = sign-extend-32(OP2[127:112]) o (sign-extend-32(OP2[111:96]) o (sign-extend-32(OP2[95:80]) o (sign-extend-32(OP2[79:64]) o (sign-extend-32(OP2[63:48]) o (sign-extend-32(OP2[47:32]) o (sign-extend-32(OP2[31:16]) o sign-extend-32(OP2[15:0]))))))))
-(vpmovsxwd ymm, xmm) -> (OP1 = sign-extend-32(OP2[127:112]) o (sign-extend-32(OP2[111:96]) o (sign-extend-32(OP2[95:80]) o (sign-extend-32(OP2[79:64]) o (sign-extend-32(OP2[63:48]) o (sign-extend-32(OP2[47:32]) o (sign-extend-32(OP2[31:16]) o sign-extend-32(OP2[15:0]))))))))

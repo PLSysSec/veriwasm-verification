@@ -1,4 +1,0 @@
-(vpmovzxdq xmm, m64) -> (OP1 = 0x0_128 o (0x0_32 o OP2[63:32] o (0x0_32 o OP2[31:0])))
-(vpmovzxdq xmm, xmm) -> (OP1 = 0x0_128 o (0x0_32 o OP2[63:32] o (0x0_32 o OP2[31:0])))
-(vpmovzxdq ymm, m128) -> (OP1 = 0x0_32 o OP2[127:96] o (0x0_32 o OP2[95:64] o (0x0_32 o OP2[63:32] o (0x0_32 o OP2[31:0]))))
-(vpmovzxdq ymm, xmm) -> (OP1 = 0x0_32 o OP2[127:96] o (0x0_32 o OP2[95:64] o (0x0_32 o OP2[63:32] o (0x0_32 o OP2[31:0]))))

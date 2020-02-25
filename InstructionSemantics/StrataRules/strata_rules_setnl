@@ -1,3 +1,0 @@
-(setnl rh) -> (OP1 = OP1[63:16] o (SF bool_iff OF ? 0x1_8 : 0x0_8) o OP1[7:0])
-(setnl r8) -> (OP1 = OP1[63:8] o (SF bool_iff OF ? 0x1_8 : 0x0_8))
-(setnl m8) -> (OP1 = (OP1[63:8] o (SF bool_iff OF ? 0x1_8 : 0x0_8))[7:0])

@@ -1,2 +1,0 @@
-(pmovsxwd xmm, m64) -> (OP1 = OP1[255:128] o (sign-extend-32(OP2[63:48]) o (sign-extend-32(OP2[47:32]) o (sign-extend-32(OP2[31:16]) o sign-extend-32(OP2[15:0])))))
-(pmovsxwd xmm, xmm) -> (OP1 = OP1[255:128] o (sign-extend-32(OP2[63:48]) o (sign-extend-32(OP2[47:32]) o (sign-extend-32(OP2[31:16]) o sign-extend-32(OP2[15:0])))))
