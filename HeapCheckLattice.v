@@ -15,7 +15,7 @@ Inductive YOBRel : YesOrBottom -> YesOrBottom -> Prop :=
 | bot_rel x : YOBRel bottom x
 | top_rel t : YOBRel t t.
 
-Program Instance YOBORder : Order YesOrBottom := { ord := YOBRel }.
+Program Instance YOBOrder : Order YesOrBottom := { ord := YOBRel }.
 Next Obligation.
   unfold RelationClasses.Reflexive.
   apply top_rel.
@@ -43,7 +43,7 @@ Definition joinYOB (a:YesOrBottom) (b:YesOrBottom) : YesOrBottom :=
   | yes => yes
   end.
 
-Program  Instance YOBLattice : Lattice YesOrBottom :=
+Program Instance YOBLattice : Lattice YesOrBottom :=
   {
     meet := meetYOB;
     join := joinYOB
@@ -81,4 +81,20 @@ Next Obligation. Proof.
 Defined.
 Next Obligation. Proof.
   unfold joinYOB; induction a; auto.
+Defined.
+
+Program Instance YOBLOSet : LOSet YOBOrder YOBLattice.
+Next Obligation.
+  split.
+  - intros. unfold meetYOB. induction a; induction b; auto.
+    inversion H. reflexivity. reflexivity.
+  - intros. induction a; induction b; auto.
+    constructor. inversion H. constructor. constructor.
+Defined.
+Next Obligation. Proof.
+  split.
+  - intros. induction a; induction b; auto.
+    inversion H.
+  - intros. induction a; induction b; auto.
+    constructor. inversion H. constructor. constructor.
 Defined.
