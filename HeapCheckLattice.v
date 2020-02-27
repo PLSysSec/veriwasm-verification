@@ -1,12 +1,5 @@
 Require Import Lattice.
 
-Inductive HeapCheckAbstractState : Set :=
-| holdHeapBase
-| bounded4G
-| holdMysteryTable
-| holdFunctionTable
-| holdFunctionPtrTable.
-
 Inductive YesOrBottom : Set :=
 | yes
 | bottom.
@@ -87,7 +80,7 @@ Program Instance YOBLOSet : LOSet YOBOrder YOBLattice.
 Next Obligation.
   split.
   - intros. unfold meetYOB. induction a; induction b; auto.
-    inversion H. reflexivity. reflexivity.
+    inversion H.
   - intros. induction a; induction b; auto.
     constructor. inversion H. constructor. constructor.
 Defined.
@@ -98,3 +91,30 @@ Next Obligation. Proof.
   - intros. induction a; induction b; auto.
     constructor. inversion H. constructor. constructor.
 Defined.
+
+Record HeapCheckAbstrState := {
+  holdHeapBase     : YesOrBottom;
+  bounded4GB       : YesOrBottom;
+  HoldMysteryTable : YesOrBottom;
+  HoldFnTableMd    : YesOrBottom;
+  HoldFnPtrTable   : YesOrBottom;
+}.
+
+Record RegsLattice := {
+  raxLattice : HeapCheckAbstrState;
+  rbxLattice : HeapCheckAbstrState;
+  rcxLattice : HeapCheckAbstrState;
+  rdxLattice : HeapCheckAbstrState;
+  rdiLattice : HeapCheckAbstrState;
+  rsiLattice : HeapCheckAbstrState;
+  rspLattice : HeapCheckAbstrState;
+  rbpLattice : HeapCheckAbstrState;
+  r8Lattice  : HeapCheckAbstrState;
+  r9Lattice  : HeapCheckAbstrState;
+  r10Lattice : HeapCheckAbstrState;
+  r11Lattice : HeapCheckAbstrState;
+  r12Lattice : HeapCheckAbstrState;
+  r13Lattice : HeapCheckAbstrState;
+  r14Lattice : HeapCheckAbstrState;
+  r15Lattice : HeapCheckAbstrState;
+}
