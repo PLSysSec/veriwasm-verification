@@ -17,6 +17,7 @@ Record state := {
   flags : flags_ty;
   stack : stack_ty;
   heap : heap_ty;
+  heap_base : int64;
 }.
 
 Fixpoint value_to_int64 (s : state) (v :value) : int64 :=
@@ -33,19 +34,22 @@ Definition set_register (s : state) (r : register) (v : int64) : state :=
 {| regs := set register_eq_dec s.(regs) r v;
    flags := s.(flags);
    stack := s.(stack);
-   heap := s.(heap) |}.
+   heap := s.(heap);
+   heap_base := s.(heap_base) |}.
 
 Definition set_flags (s : state) (f : flags_ty) : state :=
 {| regs := s.(regs);
    flags := f;
    stack := s.(stack);
-   heap := s.(heap) |}. 
+   heap := s.(heap);
+   heap_base := s.(heap_base) |}. 
 
 Definition expand_stack (s : state) (i : nat) : state :=
 {| regs := s.(regs);
    flags := s.(flags);
    stack := s.(stack) ++ (repeat Word.zero i);
-   heap := s.(heap) |}.
+   heap := s.(heap);
+   heap_base := s.(heap_base) |}.
 
 Fixpoint contract_stack (s : state) (i : nat) : state :=
 match i with
@@ -54,7 +58,8 @@ match i with
 contract_stack {| regs := s.(regs);
    flags := s.(flags);
    stack := removelast s.(stack);
-   heap := s.(heap) |} n
+   heap := s.(heap);
+   heap_base := s.(heap_base) |} n
 end.
 
 Definition read_stack (s : state) (i : nat) : int64 :=
@@ -64,7 +69,8 @@ Definition write_stack (s : state) (i : nat) (val : int64) : state :=
 {| regs := s.(regs);
    flags := s.(flags);
    stack := update s.(stack) i val;
-   heap := s.(heap) |}.
+   heap := s.(heap);
+   heap_base := s.(heap_base) |}.
 
 Definition int64_eq_dec : forall x y : int64, { eq x y } + { ~ eq x y }.
 Proof.
@@ -80,13 +86,16 @@ Definition write_heap (s : state) (i : int64) (v : int64) : state :=
 {| regs := s.(regs);
 	 flags := s.(flags);
 	 stack := s.(stack);
-	 heap := set int64_eq_dec s.(heap) i v |}.
+	 heap := set int64_eq_dec s.(heap) i v;
+   heap_base := s.(heap_base) |}.
+
+Definition fourGB : int64 := (Word.shl (Word.repr 2) (Word.repr 32)).
 
 Definition run_instr (inst : instr_class) (s : state) : state := 
   match inst with 
 | Heap_Read r_dst r_src r_base => set_register s r_dst (read_heap s (Word.add (get_register s r_src) (get_register s r_base)))
 | Heap_Write r_dst r_val r_base => write_heap s (Word.add (get_register s r_dst) (get_register s r_base)) (get_register s r_val)
-| Heap_Check r => set_register s r (Word.modu (get_register s r) (Word.shl (Word.repr 2) (Word.repr 32)))
+| Heap_Check r => set_register s r (Word.modu (get_register s r) fourGB)
 | CF_Check r => s (*TODO: Figure out wtf to do.*)
 | Reg_Write r v => set_register s r (value_to_int64 s v)
 | Reg_Move r_dst r_src => set_register s r_dst (get_register s r_src)

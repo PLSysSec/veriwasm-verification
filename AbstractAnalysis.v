@@ -15,9 +15,9 @@ Definition abs_stack_ty := list info.
 (* Definition flags_ty := fmap flag state. *)
 
 Record abs_state := {
-  regs : registers_ty;
+  regs : abs_registers_ty;
 (*  flags : flags_ty; *)
-  stack : stack_ty;
+  stack : abs_stack_ty;
 (*  heap : heap_ty; *)
 }.
 
@@ -186,7 +186,7 @@ Record cfg_ty := {
   edges : list (basic_block * basic_block)
 }.
 
-Lemma register_get_after_set_eq : forall (regs : registers_ty) reg v,
+Lemma register_get_after_set_eq : forall (regs : abs_registers_ty) reg v,
     get (set register_eq_dec regs reg v) reg = v.
 Proof.
   intros regs reg v. unfold get. unfold set. destruct (register_eq_dec reg reg).
@@ -194,7 +194,7 @@ Proof.
   - exfalso. apply n. reflexivity.
 Qed.
 
-Lemma register_get_after_set_neq : forall (regs : registers_ty) reg1 reg2 v,
+Lemma register_get_after_set_neq : forall (regs : abs_registers_ty) reg1 reg2 v,
     reg1 <> reg2 ->
     get (set register_eq_dec regs reg2 v) reg1 = get regs reg1.
 Proof.
