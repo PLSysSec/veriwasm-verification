@@ -57,17 +57,6 @@ Definition abstractify (s : state) : abs_state :=
 
 Lemma safe_mem_base : forall s i,
   abstractify_int64 s i = mem_base ->
-  Word.lt i fourGB = true.
-Proof.
-  intros s i H. unfold abstractify_int64 in H. remember (Word.lt i fourGB) as goal. destruct goal.
-  + auto.
-  + remember (Word.eq i (heap_base s)) as not_goal. destruct not_goal.
-    * inversion H.
-    * remember (Word.lt i fourGB) as not_goal. destruct not_goal; inversion H.
-Qed.
-
-Lemma safe_mem_boumd : forall s i,
-  abstractify_int64 s i = mem_bounded ->
   Word.eq i s.(heap_base) = true.
 Proof.
   intros s i H. unfold abstractify_int64 in H. remember (Word.eq i (heap_base s)) as goal. destruct goal.
@@ -77,17 +66,39 @@ Proof.
     * remember (Word.lt i fourGB) as not_goal. destruct not_goal; inversion H.
 Qed.
 
+Lemma safe_mem_bound : forall s i,
+  abstractify_int64 s i = mem_bounded ->
+  Word.lt i fourGB = true.
+Proof.
+  intros s i H. unfold abstractify_int64 in H. remember (Word.lt i fourGB) as goal. destruct goal.
+  + auto.
+  + remember (Word.eq i (heap_base s)) as not_goal. destruct not_goal.
+    * inversion H.
+    * remember (member (function_table s) i) as not_goal. destruct not_goal; inversion H.
+Qed.
+
+Lemma length_same_after_map : forall l f,
+  length l = length (map f l).
+
 Theorem safe_instr : 
   forall i abs_st st,
     abs_st = abstractify st ->
     exists abs_st', instr_class_flow_function i abs_st abs_st' ->
     is_instr_class_safe st i = true.
 Proof.
-  intros i abs_st st Hst. eexists. intros Hstep. induction Hstep.
-- unfold is_instr_class_safe. unfold is_mem_bounded. apply andb_true_intro. split. 
+  intros i abs_st st Hst. eexists. intros Hstep. unfold is_instr_class_safe, is_mem_bounded. induction Hstep; auto.
+- apply andb_true_intro. split. 
   + rewrite Hst in H. unfold get_register_info, map_get, abstractify, abstractify_registers in H.
     simpl in H. apply safe_mem_base. auto.
   + rewrite Hst in H0. unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
-    simpl in H0.
+    simpl in H0. apply safe_mem_bound in H0. auto.
+- apply andb_true_intro. split.
+  + rewrite Hst in H. unfold get_register_info, map_get, abstractify, abstractify_registers in H.
+    simpl in H. apply safe_mem_base. auto.
+  + rewrite Hst in H0. unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
+    simpl in H0. apply safe_mem_bound in H0. auto.
+- admit.
+- unfold is_stack_index_safe. rewrite Hst in H. simpl in H. unfold abstractify_list in H. 
+  induction (length (map (
 
 Search ( andb _  _ = true).  

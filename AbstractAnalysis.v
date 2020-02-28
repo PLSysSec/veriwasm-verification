@@ -144,7 +144,7 @@ Inductive instr_class_flow_function : instr_class -> abs_state -> abs_state -> P
 | I_Heap_Write: forall st r_base r_src r_dst,
     (* r_base <> r_src -> *) (* not sure if we need this to make the proofs easier *)
     get_register_info st r_base = mem_base ->
-    get_register_info st r_src = mem_bounded -> 
+    get_register_info st r_dst = mem_bounded -> 
     st |- (Heap_Write r_dst r_src r_base) ⟶ st
 | I_Heap_Check: forall st r_src,
     st |- (Heap_Check r_src) ⟶ (set_register_info st r_src mem_bounded)
