@@ -70,9 +70,9 @@ Inductive flag : Set :=
 Definition fmap (A B:Type) := 
   A -> B.
 
-Definition set {A} (eq_dec:forall (x y:A),{x=y}+{x<>y}) {B} (f:fmap A B) (x:A) (v:B) : fmap A B :=
+Definition map_set {A} (eq_dec:forall (x y:A),{x=y}+{x<>y}) {B} (f:fmap A B) (x:A) (v:B) : fmap A B :=
   fun y => if eq_dec x y then v else f y.
 
-Definition get {A} {B} (f:fmap A B) (x:A) : B := 
+Definition map_get {A} {B} (f:fmap A B) (x:A) : B := 
   f x.
 

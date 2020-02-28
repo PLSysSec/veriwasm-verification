@@ -1,4 +1,5 @@
 Require Import Machine.
+Require Import Coq.Lists.List. 
 
 Inductive info : Set :=
 | unbounded
@@ -12,7 +13,7 @@ Definition abs_stack_ty := list info.
 
 (* Definition heap_ty := list info.*)
 
-(* Definition flags_ty := fmap flag state. *)
+(* Definition flags_ty := fmap flag abs_state. *)
 
 Record abs_state := {
   regs : abs_registers_ty;
@@ -21,7 +22,7 @@ Record abs_state := {
 (*  heap : heap_ty; *)
 }.
 
-Definition abs_empty_state :=
+Definition abs_empty_abs_state :=
 {| regs := fun r => if register_eq_dec r rdi then heap_base else unbounded;
    stack := nil;
 (*   heap := nil *)|}.
@@ -63,13 +64,13 @@ Definition set_flags (s : machine) (f : flags_ty) : machine :=
    heap := s.(heap) |}. 
 *)
 
-Definition expand_stack (s : state) (i : nat) : state :=
+Definition expand_stack (s : abs_state) (i : nat) : abs_state :=
 {| regs := s.(regs);
 (*   flags := s.(flags); *)
    stack := s.(stack) ++ (repeat unbounded i);
 (*   heap := s.(heap) *)|}.
 
-Fixpoint contract_stack (s : state) (i : nat) : state :=
+Fixpoint contract_stack (s : abs_state) (i : nat) : abs_state :=
 match i with
 | 0 => s
 | S n =>
@@ -112,19 +113,19 @@ Next Obligation. rewrite <- plus_n_O. repeat (rewrite <- plus_n_Sm). reflexivity
 Qed.
 *)
 
-Definition get_register_info (s : state) (r : register) : info :=
-  get s.(regs) r.
+Definition get_register_info (s : abs_state) (r : register) : info :=
+  map_get s.(regs) r.
 
-Definition set_register_info (s : state) (r : register) (i : info) : state :=
-{| regs := set register_eq_dec s.(regs) r i;
+Definition set_register_info (s : abs_state) (r : register) (i : info) : abs_state :=
+{| regs := map_set register_eq_dec s.(regs) r i;
    stack := s.(stack);
 (*   heap := s.(heap) *) |}.
 
-Definition get_stack_info (s : state) (index : nat) : info :=
+Definition get_stack_info (s : abs_state) (index : nat) : info :=
 nth index s.(stack) unbounded.
 
 (* this needs to be updated *)
-Definition set_stack_info (s : state) (index : nat) (i : info) : state :=
+Definition set_stack_info (s : abs_state) (index : nat) (i : info) : abs_state :=
 {| regs := s.(regs);
    stack := update s.(stack) index i;
  (*  heap := s.(heap) *) |}.
@@ -134,7 +135,7 @@ Definition empty {A} (l : list A) :=
 
 Reserved Notation " st '|-' i '⟶' st' "
                   (at level 40, st' at level 39).
-Inductive instr_class_flow_function : instr_class -> state -> state -> Prop := 
+Inductive instr_class_flow_function : instr_class -> abs_state -> abs_state -> Prop := 
 | I_Heap_Read: forall st r_base r_src r_dst,
     (* r_base <> r_src -> *) (* not sure if we need this to make the proofs easier *)
     get_register_info st r_base = heap_base ->
@@ -151,8 +152,8 @@ Inductive instr_class_flow_function : instr_class -> state -> state -> Prop :=
     st |- (CF_Check r_src) ⟶ (set_register_info st r_src cf_bounded)
 | I_Reg_Move: forall st r_src r_dst,
     st |- (Reg_Move r_dst r_src) ⟶ (set_register_info st r_dst (get_register_info st r_src))
-| I_Reg_Write: forall st r_dst,
-    st |- (Reg_Write r_dst) ⟶ (set_register_info st r_dst unbounded)
+| I_Reg_Write: forall st r_dst val,
+    st |- (Reg_Write r_dst val) ⟶ (set_register_info st r_dst unbounded)
 | I_Stack_Expand: forall st i,
     st |- (Stack_Expand i) ⟶ (expand_stack st i)
 | I_Stack_Contract: forall st i,
@@ -177,7 +178,7 @@ Inductive instr_class_flow_function : instr_class -> state -> state -> Prop :=
 
 Reserved Notation " st '|-' is '\longrightarrow*' st' "
                   (at level 40, st' at level 39).
-Inductive instr_class_multi : instr_class -> state -> state -> Prop := .
+Inductive instr_class_multi : instr_class -> abs_state -> abs_state -> Prop := .
 
 Definition basic_block := list instr_class.
 
@@ -187,23 +188,23 @@ Record cfg_ty := {
 }.
 
 Lemma register_get_after_set_eq : forall (regs : abs_registers_ty) reg v,
-    get (set register_eq_dec regs reg v) reg = v.
+    map_get (map_set register_eq_dec regs reg v) reg = v.
 Proof.
-  intros regs reg v. unfold get. unfold set. destruct (register_eq_dec reg reg).
+  intros regs reg v. unfold map_get. unfold map_set. destruct (register_eq_dec reg reg).
   - reflexivity.
   - exfalso. apply n. reflexivity.
 Qed.
 
 Lemma register_get_after_set_neq : forall (regs : abs_registers_ty) reg1 reg2 v,
     reg1 <> reg2 ->
-    get (set register_eq_dec regs reg2 v) reg1 = get regs reg1.
+    map_get (map_set register_eq_dec regs reg2 v) reg1 = map_get regs reg1.
 Proof.
-  intros regs reg1 reg2 v Heq. unfold get. unfold set. destruct (register_eq_dec reg2 reg1).
+  intros regs reg1 reg2 v Heq. unfold map_get. unfold map_set. destruct (register_eq_dec reg2 reg1).
   - exfalso. apply Heq. auto.
   - reflexivity.
 Qed.
 
-Definition safe_stack_read (st : state) (r_base : register) (r_src : register) (r_dst : register) : Prop :=
+Definition safe_stack_read (st : abs_state) (r_base : register) (r_src : register) (r_dst : register) : Prop :=
   r_base <> r_src /\ get_register_info st r_base = heap_base /\ get_register_info st r_src = mem_bounded.
 
 Lemma read_after_check_is_safe: forall r_base r_src r_dst st, exists st' st'',
@@ -219,11 +220,3 @@ Proof.
     + unfold get_register_info in *. unfold set_register_info. simpl. rewrite register_get_after_set_neq; auto.
     + unfold get_register_info in *. unfold set_register_info. simpl. rewrite register_get_after_set_eq; auto.
 Qed.
-
-Theorem sfi_property: forall (cfg : cfg_ty) exists st,
-  (* local properties -> *)
- empty |- cfg --> st.
-
-Definition terminates (instrs : list instr_class) : Prop :=
-  exists st, fold_left instr_class_flow_function empty_state instrs = st.
-

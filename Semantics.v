@@ -1,4 +1,5 @@
 Require Import Coq.Lists.List.
+Require Import Coq.Lists.ListSet.
 Require Import BinInt.
 Require Import Machine.
 Require Import Bits.
@@ -12,12 +13,15 @@ Definition heap_ty := fmap int64 int64.
 
 Definition flags_ty := fmap flag int1.
 
+Definition function_table_ty := set int64.
+
 Record state := {
   regs : registers_ty;
   flags : flags_ty;
   stack : stack_ty;
   heap : heap_ty;
   heap_base : int64;
+  function_table : function_table_ty;
 }.
 
 Fixpoint value_to_int64 (s : state) (v :value) : int64 :=
@@ -28,28 +32,31 @@ match v with
 end.
 
 Definition get_register (s : state) (r : register) : int64 :=
-  get s.(regs) r.
+  map_get s.(regs) r.
 
 Definition set_register (s : state) (r : register) (v : int64) : state :=
-{| regs := set register_eq_dec s.(regs) r v;
+{| regs := map_set register_eq_dec s.(regs) r v;
    flags := s.(flags);
    stack := s.(stack);
    heap := s.(heap);
-   heap_base := s.(heap_base) |}.
+   heap_base := s.(heap_base);
+   function_table := s.(function_table) |}.
 
 Definition set_flags (s : state) (f : flags_ty) : state :=
 {| regs := s.(regs);
    flags := f;
    stack := s.(stack);
    heap := s.(heap);
-   heap_base := s.(heap_base) |}. 
+   heap_base := s.(heap_base) ;
+   function_table := s.(function_table) |}.
 
 Definition expand_stack (s : state) (i : nat) : state :=
 {| regs := s.(regs);
    flags := s.(flags);
    stack := s.(stack) ++ (repeat Word.zero i);
    heap := s.(heap);
-   heap_base := s.(heap_base) |}.
+   heap_base := s.(heap_base) ;
+   function_table := s.(function_table) |}.
 
 Fixpoint contract_stack (s : state) (i : nat) : state :=
 match i with
@@ -59,7 +66,9 @@ contract_stack {| regs := s.(regs);
    flags := s.(flags);
    stack := removelast s.(stack);
    heap := s.(heap);
-   heap_base := s.(heap_base) |} n
+   heap_base := s.(heap_base) ;
+   function_table := s.(function_table) |}
+ n
 end.
 
 Definition read_stack (s : state) (i : nat) : int64 :=
@@ -70,7 +79,8 @@ Definition write_stack (s : state) (i : nat) (val : int64) : state :=
    flags := s.(flags);
    stack := update s.(stack) i val;
    heap := s.(heap);
-   heap_base := s.(heap_base) |}.
+   heap_base := s.(heap_base) ;
+   function_table := s.(function_table) |}.
 
 Definition int64_eq_dec : forall x y : int64, { eq x y } + { ~ eq x y }.
 Proof.
@@ -86,8 +96,9 @@ Definition write_heap (s : state) (i : int64) (v : int64) : state :=
 {| regs := s.(regs);
 	 flags := s.(flags);
 	 stack := s.(stack);
-	 heap := set int64_eq_dec s.(heap) i v;
-   heap_base := s.(heap_base) |}.
+	 heap := map_set int64_eq_dec s.(heap) i v;
+   heap_base := s.(heap_base);
+   function_table := s.(function_table) |}.
 
 Definition fourGB : int64 := (Word.shl (Word.repr 2) (Word.repr 32)).
 
