@@ -77,28 +77,58 @@ Proof.
     * remember (member (function_table s) i) as not_goal. destruct not_goal; inversion H.
 Qed.
 
-Lemma length_same_after_map : forall l f,
-  length l = length (map f l).
+Lemma safe_function_index : forall s i, 
+  abstractify_int64 s i = cf_bounded ->
+  member s.(function_table) i = true.
+Proof.
+  intros s i H. unfold abstractify_int64 in H. remember (member (function_table s) i) as goal. destruct goal.
+  + auto.
+  + remember (Word.eq i (heap_base s)) as not_goal. destruct not_goal.
+    * inversion H.
+    * remember (Word.lt i fourGB) as not_goal. destruct not_goal; inversion H.
+Qed.
+
+Lemma safe_function_return : forall s i, 
+  abstractify_int64 s i = cf_bounded ->
+  member s.(function_table) i = true.
+Proof.
+  intros s i H. unfold abstractify_int64 in H. remember (member (function_table s) i) as goal. destruct goal.
+  + auto.
+  + remember (Word.eq i (heap_base s)) as not_goal. destruct not_goal.
+    * inversion H.
+    * remember (Word.lt i fourGB) as not_goal. destruct not_goal; inversion H.
+Qed.
 
 Theorem safe_instr : 
-  forall i abs_st st,
+  forall i abs_st abs_st' st,
     abs_st = abstractify st ->
-    exists abs_st', instr_class_flow_function i abs_st abs_st' ->
+    instr_class_flow_function i abs_st abs_st' ->
     is_instr_class_safe st i = true.
 Proof.
-  intros i abs_st st Hst. eexists. intros Hstep. unfold is_instr_class_safe, is_mem_bounded. induction Hstep; auto.
+  intros i abs_st abst_st' st Hst Hstep. unfold is_instr_class_safe, is_mem_bounded. induction Hstep; subst; auto.
 - apply andb_true_intro. split. 
-  + rewrite Hst in H. unfold get_register_info, map_get, abstractify, abstractify_registers in H.
+  + unfold get_register_info, map_get, abstractify, abstractify_registers in H.
     simpl in H. apply safe_mem_base. auto.
-  + rewrite Hst in H0. unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
+  + unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
     simpl in H0. apply safe_mem_bound in H0. auto.
 - apply andb_true_intro. split.
-  + rewrite Hst in H. unfold get_register_info, map_get, abstractify, abstractify_registers in H.
-    simpl in H. apply safe_mem_base. auto.
-  + rewrite Hst in H0. unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
-    simpl in H0. apply safe_mem_bound in H0. auto.
-- admit.
-- unfold is_stack_index_safe. rewrite Hst in H. simpl in H. unfold abstractify_list in H. 
-  induction (length (map (
-
-Search ( andb _  _ = true).  
+  + unfold get_register_info, map_get, abstractify, abstractify_registers in H.
+    apply safe_mem_base. auto.
+  + unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
+    apply safe_mem_bound in H0. auto.
+- unfold is_stack_contract_safe. apply PeanoNat.Nat.leb_le. unfold abs_stack, abstractify, abstractify_list in H.
+  rewrite map_length in H. auto.
+- unfold is_stack_index_safe. simpl in H. unfold abstractify_list in H.
+  rewrite map_length in H. apply PeanoNat.Nat.ltb_lt. auto.
+- unfold is_stack_index_safe. simpl in H. unfold abstractify_list in H.
+  rewrite map_length in H. apply PeanoNat.Nat.ltb_lt. auto.
+- apply andb_true_intro. split.
+  + unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
+    apply safe_mem_base in H0. auto.
+  +unfold get_register_info, map_get, abstractify, abstractify_registers in H.
+    apply safe_function_index. auto.
+- unfold get_register_info, map_get, abstractify, abstractify_registers in H. simpl in H.
+  apply safe_mem_base. auto.
+- unfold is_return_safe. simpl in H. unfold abstractify_list, empty in H.
+  apply map_eq_nil in H. apply PeanoNat.Nat.eqb_eq. rewrite H. auto.
+Qed.

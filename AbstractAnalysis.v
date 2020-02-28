@@ -157,6 +157,7 @@ Inductive instr_class_flow_function : instr_class -> abs_state -> abs_state -> P
 | I_Stack_Expand: forall st i,
     st |- (Stack_Expand i) ⟶ (expand_abs_stack st i)
 | I_Stack_Contract: forall st i,
+    i <= (length st.(abs_stack)) ->
     st |- (Stack_Contract i) ⟶ (contract_abs_stack st i)
 | I_Stack_Read: forall st i r_dst,
     i < (length st.(abs_stack)) ->
