@@ -55,9 +55,39 @@ Definition abstractify (s : state) : abs_state :=
 {| abs_regs := abstractify_registers s s.(regs);
    abs_stack := abstractify_list s s.(stack) |}.
 
+Lemma safe_mem_base : forall s i,
+  abstractify_int64 s i = mem_base ->
+  Word.lt i fourGB = true.
+Proof.
+  intros s i H. unfold abstractify_int64 in H. remember (Word.lt i fourGB) as goal. destruct goal.
+  + auto.
+  + remember (Word.eq i (heap_base s)) as not_goal. destruct not_goal.
+    * inversion H.
+    * remember (Word.lt i fourGB) as not_goal. destruct not_goal; inversion H.
+Qed.
+
+Lemma safe_mem_boumd : forall s i,
+  abstractify_int64 s i = mem_bounded ->
+  Word.eq i s.(heap_base) = true.
+Proof.
+  intros s i H. unfold abstractify_int64 in H. remember (Word.eq i (heap_base s)) as goal. destruct goal.
+  + auto.
+  + remember (member (function_table s) i) as not_goal. destruct not_goal.
+    * inversion H.
+    * remember (Word.lt i fourGB) as not_goal. destruct not_goal; inversion H.
+Qed.
+
 Theorem safe_instr : 
-  forall i st,
-    exists st', instr_class_flow_function i (abstractify st) (abstractify st') ->
+  forall i abs_st st,
+    abs_st = abstractify st ->
+    exists abs_st', instr_class_flow_function i abs_st abs_st' ->
     is_instr_class_safe st i = true.
 Proof.
-  intros i st. eexists st'. induction i.
+  intros i abs_st st Hst. eexists. intros Hstep. induction Hstep.
+- unfold is_instr_class_safe. unfold is_mem_bounded. apply andb_true_intro. split. 
+  + rewrite Hst in H. unfold get_register_info, map_get, abstractify, abstractify_registers in H.
+    simpl in H. apply safe_mem_base. auto.
+  + rewrite Hst in H0. unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
+    simpl in H0.
+
+Search ( andb _  _ = true).  
