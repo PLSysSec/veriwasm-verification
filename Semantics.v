@@ -82,15 +82,10 @@ Definition write_stack (s : state) (i : nat) (val : int64) : state :=
    heap_base := s.(heap_base) ;
    function_table := s.(function_table) |}.
 
-Definition int64_eq_dec : forall x y : int64, { eq x y } + { ~ eq x y }.
-Proof.
-	intros. case_eq (Word.eq x y); intros.
-		- left. inversion H. admit.  (*unfold eq; int_to_Z_tac. omega.*)
-		- right. unfold Word.eq in H. admit. (*unfold eq; int_to_Z_tac. omega.*)
-Admitted.
-
 Definition read_heap (s : state) (i : int64) : int64 :=
 s.(heap) i.
+
+
 
 Definition write_heap (s : state) (i : int64) (v : int64) : state :=
 {| regs := s.(regs);

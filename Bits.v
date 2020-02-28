@@ -3942,6 +3942,12 @@ Definition int64 := Word.int size64.
 Definition int80 := Word.int size80.
 
 (** * Additional lemmas *)
+Lemma int64_eq_dec : forall x y : int64, { eq x y } + { ~ eq x y }.
+Proof.
+  intros. destruct x; destruct y. case (zeq intval intval0); intro.
+  left. apply Word.mkint_eq. auto.
+  right. red; intro. injection H. exact n.
+Qed.
 
 Lemma min_signed_mono n1 n2:
   (n1 <= n2)%nat -> (Word.min_signed n2 <= Word.min_signed n1)%Z.
