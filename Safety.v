@@ -149,7 +149,8 @@ Proof.
   - auto.
   - simpl. intros st abs_st Hst Hstep. apply andb_true_intro. split.
     + inversion Hstep. inversion H. eapply safe_instr. apply Hst. apply H7.
-    + inversion Hstep. apply IHbb with (st := (run_instr a st)) (abs_st := abstractify (run_instr a st)).
+    + inversion Hstep. apply IHbb with (st := (run_instr a st)) (abs_st := abstractify (run_instr a st)). auto.
+      auto.
       * unfold abstractify. unfold abstractify_registers, abstractify_list. simpl. 
 
  apply Hst. apply IHbb'. inversion Hstep. apply IHbb. 
