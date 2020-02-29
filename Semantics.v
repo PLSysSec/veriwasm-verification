@@ -114,3 +114,6 @@ Definition run_instr (inst : instr_class) (s : state) : state :=
 | Direct_Call => s
 | Ret => s
 end.
+
+Definition run_basic_block (bb : basic_block) (s : state) : state :=
+  fold_left (fun s i => run_instr i s) bb s.

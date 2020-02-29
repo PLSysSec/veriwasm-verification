@@ -56,6 +56,8 @@ Inductive instr_class :=
 | Direct_Call : instr_class
 | Ret : instr_class.
 
+Definition basic_block := list instr_class.
+
 Definition register_eq_dec : forall (x y:register), {x=y} + {x<>y}.
   intros ; decide equality.
 Defined.

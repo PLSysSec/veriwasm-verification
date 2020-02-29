@@ -40,6 +40,12 @@ Definition is_instr_class_safe (s : state) (i : instr_class) : bool :=
 | _ => true
 end.
 
+Fixpoint is_basic_block_safe (s : state) (bb : basic_block) : bool :=
+match bb with
+| nil => true
+| i :: bb' => andb (is_instr_class_safe s i) (is_basic_block_safe (run_instr i s) bb') 
+end.
+
 Definition abstractify_int64 (s : state) (i : int64) : info :=
 if (Word.eq i s.(heap_base)) then mem_base else
 if (member s.(function_table) i) then cf_bounded else
@@ -132,3 +138,19 @@ Proof.
 - unfold is_return_safe. simpl in H. unfold abstractify_list, empty in H.
   apply map_eq_nil in H. apply PeanoNat.Nat.eqb_eq. rewrite H. auto.
 Qed.
+
+Theorem safe_basic_block : 
+  forall bb abs_st abs_st' st,
+  abs_st = abstractify st ->
+  multi_basic_block_flow_function (bb, abs_st) (nil, abs_st') ->
+  is_basic_block_safe st bb = true.
+Proof.
+  intros bb abs_st abs_st' st Hst Hstep. generalize dependent abs_st. generalize dependent st. induction bb.
+  - auto.
+  - simpl. intros st abs_st Hst Hstep. apply andb_true_intro. split.
+    + inversion Hstep. inversion H. eapply safe_instr. apply Hst. apply H7.
+    + inversion Hstep. apply IHbb with (st := (run_instr a st)) (abs_st := abstractify (run_instr a st)).
+      * unfold abstractify. unfold abstractify_registers, abstractify_list. simpl. 
+
+ apply Hst. apply IHbb'. inversion Hstep. apply IHbb. 
+

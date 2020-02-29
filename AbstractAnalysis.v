@@ -177,11 +177,21 @@ Inductive instr_class_flow_function : instr_class -> abs_state -> abs_state -> P
     st |- (Ret) ⟶  st
   where " st '|-' i '⟶' st' " := (instr_class_flow_function i st st').
 
-Reserved Notation " st '|-' is '\longrightarrow*' st' "
-                  (at level 40, st' at level 39).
-Inductive instr_class_multi : instr_class -> abs_state -> abs_state -> Prop := .
+Inductive basic_block_flow_function : (basic_block * abs_state) -> (basic_block * abs_state) -> Prop :=
+| I_Basic_Block : forall i is st st',
+  instr_class_flow_function i st st' ->
+  basic_block_flow_function (i :: is, st) (is , st').
 
-Definition basic_block := list instr_class.
+Definition relation (X : Type) := X -> X -> Prop.
+
+Inductive multi {X : Type} (R : relation X) : relation X :=
+  | multi_refl : forall (x : X), multi R x x
+  | multi_step : forall (x y z : X),
+                    R x y ->
+                    multi R y z ->
+                    multi R x z.
+
+Definition multi_basic_block_flow_function := multi basic_block_flow_function.
 
 Record cfg_ty := {
   nodes : list basic_block;
