@@ -115,5 +115,13 @@ Definition run_instr (inst : instr_class) (s : state) : state :=
 | Ret => s
 end.
 
+Theorem run_instr_deterministic : forall init_st st st' i, 
+  run_instr i init_st = st ->
+  run_instr i init_st = st' ->
+  st = st'.
+Proof.
+  intros init_st st st' i H1 H2. rewrite <- H1, H2. auto.
+Qed.
+
 Definition run_basic_block (bb : basic_block) (s : state) : state :=
   fold_left (fun s i => run_instr i s) bb s.

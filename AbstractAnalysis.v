@@ -22,7 +22,7 @@ Record abs_state := {
 (*  heap : heap_ty; *)
 }.
 
-Definition abs_empty_abs_state :=
+Definition abs_empty_state :=
 {| abs_regs := fun r => if register_eq_dec r rdi then mem_base else unbounded;
    abs_stack := nil;
 (*   heap := nil *)|}.
@@ -177,6 +177,19 @@ Inductive instr_class_flow_function : instr_class -> abs_state -> abs_state -> P
     st |- (Ret) ⟶  st
   where " st '|-' i '⟶' st' " := (instr_class_flow_function i st st').
 
+Theorem instr_class_flow_function_deterministic: forall init_st st st' i,
+  init_st |- i ⟶ st ->
+  init_st |- i ⟶ st' ->
+  st = st'.
+Proof.
+  intros init_st st st' i H1 H2. inversion H1; inversion H2; subst; 
+  try (inversion H8; auto);
+  try (inversion H7; auto);
+  try (inversion H6; auto);
+  try (inversion H5; auto);
+  try (inversion H4; auto).
+Qed.
+
 Inductive basic_block_flow_function : (basic_block * abs_state) -> (basic_block * abs_state) -> Prop :=
 | I_Basic_Block : forall i is st st',
   instr_class_flow_function i st st' ->
@@ -192,6 +205,24 @@ Inductive multi {X : Type} (R : relation X) : relation X :=
                     multi R x z.
 
 Definition multi_basic_block_flow_function := multi basic_block_flow_function.
+
+Lemma instr_class_flow_function_step_same_state :
+
+
+Lemma multi_basic_block_test :  exists abs_st,
+  multi_basic_block_flow_function (
+Heap_Check rax ::
+Heap_Read rbx rax rdi ::
+nil, abs_empty_state) (nil, abs_st).
+Proof.
+  eexists. eapply multi_step.
+  - apply I_Basic_Block. apply I_Heap_Check.
+  - eapply multi_step.
+    + apply I_Basic_Block. apply I_Heap_Read.
+      * unfold map_set. auto.
+      * unfold map_set. auto.
+    + apply multi_refl.
+Qed.
 
 Record cfg_ty := {
   nodes : list basic_block;
