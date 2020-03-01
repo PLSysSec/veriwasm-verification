@@ -133,53 +133,53 @@ Definition set_stack_info (s : abs_state) (index : nat) (i : info) : abs_state :
 Definition empty {A} (l : list A) :=
   l = nil.
 
-Reserved Notation " st '|-' i '⟶' st' "
+Reserved Notation " i '/' st 'v-->' st' "
                   (at level 40, st' at level 39).
-Inductive instr_class_flow_function : instr_class -> abs_state -> abs_state -> Prop := 
-| I_Heap_Read: forall st r_base r_src r_dst,
+Inductive instr_class_vstep : instr_class -> abs_state -> abs_state -> Prop := 
+| V_Heap_Read: forall st r_base r_src r_dst,
     (* r_base <> r_src -> *) (* not sure if we need this to make the proofs easier *)
     get_register_info st r_base = mem_base ->
     get_register_info st r_src = mem_bounded ->
-    st |- (Heap_Read r_dst r_src r_base) ⟶ (set_register_info st r_dst unbounded) 
-| I_Heap_Write: forall st r_base r_src r_dst,
+    Heap_Read r_dst r_src r_base / st v--> (set_register_info st r_dst unbounded) 
+| V_Heap_Write: forall st r_base r_src r_dst,
     (* r_base <> r_src -> *) (* not sure if we need this to make the proofs easier *)
     get_register_info st r_base = mem_base ->
     get_register_info st r_dst = mem_bounded -> 
-    st |- (Heap_Write r_dst r_src r_base) ⟶ st
-| I_Heap_Check: forall st r_src,
-    st |- (Heap_Check r_src) ⟶ (set_register_info st r_src mem_bounded)
-| I_CF_Check: forall st r_src,
-    st |- (CF_Check r_src) ⟶ (set_register_info st r_src cf_bounded)
-| I_Reg_Move: forall st r_src r_dst,
-    st |- (Reg_Move r_dst r_src) ⟶ (set_register_info st r_dst (get_register_info st r_src))
-| I_Reg_Write: forall st r_dst val,
-    st |- (Reg_Write r_dst val) ⟶ (set_register_info st r_dst unbounded)
-| I_Stack_Expand: forall st i,
-    st |- (Stack_Expand i) ⟶ (expand_abs_stack st i)
-| I_Stack_Contract: forall st i,
+    Heap_Write r_dst r_src r_base / st v--> st
+| V_Heap_Check: forall st r_src,
+    Heap_Check r_src / st v--> (set_register_info st r_src mem_bounded)
+| V_CF_Check: forall st r_src,
+    CF_Check r_src / st v--> (set_register_info st r_src cf_bounded)
+| V_Reg_Move: forall st r_src r_dst,
+    Reg_Move r_dst r_src / st v--> (set_register_info st r_dst (get_register_info st r_src))
+| V_Reg_Write: forall st r_dst val,
+    Reg_Write r_dst val / st v--> (set_register_info st r_dst unbounded)
+| V_Stack_Expand: forall st i,
+    Stack_Expand i / st v--> (expand_abs_stack st i)
+| V_Stack_Contract: forall st i,
     i <= (length st.(abs_stack)) ->
-    st |- (Stack_Contract i) ⟶ (contract_abs_stack st i)
-| I_Stack_Read: forall st i r_dst,
+    Stack_Contract i / st v--> (contract_abs_stack st i)
+| V_Stack_Read: forall st i r_dst,
     i < (length st.(abs_stack)) ->
-    st |- (Stack_Read r_dst i) ⟶ (set_register_info st r_dst (get_stack_info st i))
-| I_Stack_Write: forall st i r_src,
+    Stack_Read r_dst i / st v--> (set_register_info st r_dst (get_stack_info st i))
+| V_Stack_Write: forall st i r_src,
     i < (length st.(abs_stack)) ->
-    st |- (Stack_Write i r_src) ⟶ (set_stack_info st i (get_register_info st r_src))
-| I_Indirect_Call: forall st reg,
+    Stack_Write i r_src / st v--> (set_stack_info st i (get_register_info st r_src))
+| V_Indirect_Call: forall st reg,
     get_register_info st reg = cf_bounded ->
     get_register_info st rdi = mem_base ->
-    st |- (Indirect_Call reg) ⟶  st
-| I_Direct_Call: forall st,
+    Indirect_Call reg / st v-->  st
+| V_Direct_Call: forall st,
     get_register_info st rdi = mem_base ->
-    st |- (Direct_Call) ⟶  st
-| I_Ret: forall st,
+    Direct_Call / st v-->  st
+| V_Ret: forall st,
     empty st.(abs_stack) ->
-    st |- (Ret) ⟶  st
-  where " st '|-' i '⟶' st' " := (instr_class_flow_function i st st').
+    Ret / st v-->  st
+  where " i '/' st 'v-->' st'" := (instr_class_vstep i st st').
 
-Theorem instr_class_flow_function_deterministic: forall init_st st st' i,
-  init_st |- i ⟶ st ->
-  init_st |- i ⟶ st' ->
+Theorem instr_class_vstep_deterministic: forall init_st st st' i,
+  i / init_st v--> st ->
+  i / init_st v--> st' ->
   st = st'.
 Proof.
   intros init_st st st' i H1 H2. inversion H1; inversion H2; subst; 
@@ -190,10 +190,10 @@ Proof.
   try (inversion H4; auto).
 Qed.
 
-Inductive basic_block_flow_function : (basic_block * abs_state) -> (basic_block * abs_state) -> Prop :=
+Inductive basic_block_vstep : (basic_block * abs_state) -> (basic_block * abs_state) -> Prop :=
 | I_Basic_Block : forall i is st st',
-  instr_class_flow_function i st st' ->
-  basic_block_flow_function (i :: is, st) (is , st').
+  instr_class_vstep i st st' ->
+  basic_block_vstep (i :: is, st) (is , st').
 
 Definition relation (X : Type) := X -> X -> Prop.
 
@@ -204,21 +204,18 @@ Inductive multi {X : Type} (R : relation X) : relation X :=
                     multi R y z ->
                     multi R x z.
 
-Definition multi_basic_block_flow_function := multi basic_block_flow_function.
-
-Lemma instr_class_flow_function_step_same_state :
-
+Definition multi_basic_block_vstep := multi basic_block_vstep.
 
 Lemma multi_basic_block_test :  exists abs_st,
-  multi_basic_block_flow_function (
+  multi_basic_block_vstep (
 Heap_Check rax ::
 Heap_Read rbx rax rdi ::
 nil, abs_empty_state) (nil, abs_st).
 Proof.
   eexists. eapply multi_step.
-  - apply I_Basic_Block. apply I_Heap_Check.
+  - apply I_Basic_Block. apply V_Heap_Check.
   - eapply multi_step.
-    + apply I_Basic_Block. apply I_Heap_Read.
+    + apply I_Basic_Block. apply V_Heap_Read.
       * unfold map_set. auto.
       * unfold map_set. auto.
     + apply multi_refl.
@@ -252,13 +249,13 @@ Definition safe_stack_read (st : abs_state) (r_base : register) (r_src : registe
 Lemma read_after_check_is_safe: forall r_base r_src r_dst st, exists st' st'',
   r_base <> r_src ->
   get_register_info st r_base = mem_base ->
-  st |- (Heap_Check r_src) ⟶ st' /\ st' |- (Heap_Read r_dst r_src r_base) ⟶ st''.
+  Heap_Check r_src / st v--> st' /\ Heap_Read r_dst r_src r_base / st' v--> st''.
 Proof.
   intros r_base r_src r_dst st. 
   eexists. eexists. intros Hneq Hbase.
   split.
-  - apply I_Heap_Check.
-  - apply I_Heap_Read.
+  - apply V_Heap_Check.
+  - apply V_Heap_Read.
     + unfold get_register_info in *. unfold set_register_info. simpl. rewrite register_get_after_set_neq; auto.
     + unfold get_register_info in *. unfold set_register_info. simpl. rewrite register_get_after_set_eq; auto.
 Qed.

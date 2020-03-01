@@ -123,5 +123,69 @@ Proof.
   intros init_st st st' i H1 H2. rewrite <- H1, H2. auto.
 Qed.
 
+Reserved Notation " i '/' st 'i-->' st' "
+                  (at level 40, st' at level 39).
+Inductive instr_class_istep : instr_class -> state -> state -> Prop := 
+| I_Heap_Read: forall st r_base r_src r_dst,
+    Heap_Read r_dst r_src r_base / st i--> set_register st r_dst (read_heap st (Word.add (get_register st r_src) (get_register st r_base)))
+| I_Heap_Write: forall st r_base r_val r_dst,
+    Heap_Write r_dst r_val r_base / st i--> write_heap st (Word.add (get_register st r_dst) (get_register st r_base)) (get_register st r_val)
+| I_Heap_Check: forall st r_src,
+    Heap_Check r_src / st i--> set_register st r_src (Word.modu (get_register st r_src) fourGB)
+| I_CF_Check: forall st r_src,
+    CF_Check r_src / st i--> st (* probably wrong *)
+| I_Reg_Move: forall st r_src r_dst,
+    Reg_Move r_dst r_src / st i--> set_register st r_dst (get_register st r_src)
+| I_Reg_Write: forall st r_dst val,
+    Reg_Write r_dst val / st i--> set_register st r_dst (value_to_int64 st val)
+| I_Stack_Expand: forall st i,
+    Stack_Expand i / st i--> expand_stack st i
+| I_Stack_Contract: forall st i,
+    Stack_Contract i / st i--> contract_stack st i
+| I_Stack_Read: forall st i r_dst,
+    Stack_Read r_dst i / st i--> set_register st r_dst (read_stack st i)
+| I_Stack_Write: forall st i r_src,
+    Stack_Write i r_src / st i--> write_stack st i (get_register st r_src)
+(* those calls might also be wrong *)
+| I_Indirect_Call: forall st reg,
+    Indirect_Call reg / st i-->  st
+| I_Direct_Call: forall st,
+    Direct_Call / st i-->  st
+| I_Ret: forall st,
+    Ret / st i-->  st
+  where " i '/' st 'i-->' st'" := (instr_class_istep i st st').
+
+Theorem instr_class_istep_deterministic : forall init_st st st' i, 
+  i / init_st i--> st ->
+  i / init_st i--> st' ->
+  st = st'.
+Proof.
+  intros init_st st st' i H1 H2. inversion H1; inversion H2; subst; 
+  try (inversion H8; auto);
+  try (inversion H7; auto);
+  try (inversion H6; auto);
+  try (inversion H5; auto);
+  try (inversion H4; auto).
+Qed.
+
+Theorem instr_class_always_isteps : forall st i,
+  exists st', i / st i--> st'.
+Proof.
+  intros st i. induction i; eexists.
+- apply I_Heap_Read.
+- apply I_Heap_Write.
+- apply I_Heap_Check.
+- apply I_CF_Check.
+- apply I_Reg_Move.
+- apply I_Reg_Write. 
+- apply I_Stack_Expand.
+- apply I_Stack_Contract.
+- apply I_Stack_Read.
+- apply I_Stack_Write.
+- apply I_Indirect_Call.
+- apply I_Direct_Call.
+- apply I_Ret.
+Qed.
+
 Definition run_basic_block (bb : basic_block) (s : state) : state :=
   fold_left (fun s i => run_instr i s) bb s.
