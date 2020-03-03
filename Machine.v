@@ -41,6 +41,27 @@ match l, i with
 | h :: t, S i' => update t i' v
 end.
 
+Inductive conditional :=
+| Not_Equal : register -> register -> conditional
+| Equal : register -> register -> conditional
+| Greater : register -> register -> conditional       (*signed*)
+| Greater_Equal : register -> register -> conditional (*signed*)
+| Above : register -> register -> conditional         (*unsigned*)
+| Above_Equal : register -> register -> conditional   (*unsigned*)
+| Lesser : register -> register -> conditional        (*signed*)
+| Lesser_Equal : register -> register -> conditional  (*signed*)
+| Below : register -> register -> conditional         (*unsigned*)
+| Below_Equal : register -> register -> conditional   (*unsigned*)
+(*TODO: Flags need to be set for these
+| Overflow
+| Not_Overflow
+| Zero
+| Not_Zero
+| Signed
+| Not_Signed
+*)
+| Counter_Register_Zero.
+
 Inductive instr_class := 
 | Heap_Read : register -> register -> register -> instr_class
 | Heap_Write : register -> register -> register -> instr_class
@@ -52,6 +73,7 @@ Inductive instr_class :=
 | Stack_Contract : nat -> instr_class
 | Stack_Read : register -> nat -> instr_class
 | Stack_Write : nat -> register -> instr_class
+| Branch : conditional -> instr_class
 | Indirect_Call : register -> instr_class
 | Direct_Call : instr_class
 | Ret : instr_class.
