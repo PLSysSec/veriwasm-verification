@@ -164,6 +164,8 @@ Inductive instr_class_istep : instr_class -> state -> state -> Prop :=
 | I_Stack_Write: forall st i r_src,
     Stack_Write i r_src / st i--> write_stack st i (get_register st r_src)
 (* those calls might also be wrong *)
+| I_Branch: forall st cond,
+    Branch cond / st i--> st
 | I_Indirect_Call: forall st reg,
     Indirect_Call reg / st i-->  st
 | I_Direct_Call: forall st,
@@ -199,6 +201,7 @@ Proof.
 - apply I_Stack_Contract.
 - apply I_Stack_Read.
 - apply I_Stack_Write.
+- apply I_Branch.
 - apply I_Indirect_Call.
 - apply I_Direct_Call.
 - apply I_Ret.
