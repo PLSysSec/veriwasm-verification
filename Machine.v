@@ -41,6 +41,7 @@ match l, i with
 | h :: t, S i' => update t i' v
 end.
 
+(* List from https://en.wikibooks.org/wiki/X86_Assembly/Control_Flow#Jump_if_Zero *)
 Inductive conditional :=
 | Not_Equal : register -> register -> conditional
 | Equal : register -> register -> conditional
