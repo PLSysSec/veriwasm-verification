@@ -97,6 +97,7 @@ Definition write_heap (s : state) (i : int64) (v : int64) : state :=
 
 Definition fourGB : int64 := (Word.shl (Word.repr 2) (Word.repr 32)).
 
+(*TODO: This doesn't handle signed/unsigned conversions correctly*)
 Definition run_conditional (c : conditional) (s : state) : bool :=
   match c with
 | Not_Equal r1 r2 => negb (Word.eq (get_register s r1) (get_register s r2))
