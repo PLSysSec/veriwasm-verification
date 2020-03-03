@@ -80,6 +80,16 @@ Inductive instr_class :=
 
 Definition basic_block := list instr_class.
 
+Inductive edge_class : Set :=
+| True_Branch
+| False_Branch
+| Non_Branch.
+
+Record cfg_ty := {
+  nodes : list basic_block;
+  edges : (list (basic_block * basic_block) * edge_class)
+}.
+
 Definition register_eq_dec : forall (x y:register), {x=y} + {x<>y}.
   intros ; decide equality.
 Defined.
