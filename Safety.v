@@ -72,6 +72,8 @@ Inductive safe_instr_class : instr_class -> state -> Prop :=
   Word.eq (get_register st rdi) st.(heap_base) = true ->
   member st.(function_table) (get_register st reg) = true ->
   safe_instr_class (Indirect_Call reg) st
+| I_Branch_Safe: forall cond st,
+  safe_instr_class (Branch cond) st
 | I_Direct_Call_Safe: forall st,
   Word.eq (get_register st rdi) st.(heap_base) = true ->
   safe_instr_class (Direct_Call) st

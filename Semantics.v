@@ -97,6 +97,22 @@ Definition write_heap (s : state) (i : int64) (v : int64) : state :=
 
 Definition fourGB : int64 := (Word.shl (Word.repr 2) (Word.repr 32)).
 
+(*TODO: This doesn't handle signed/unsigned conversions correctly*)
+Definition run_conditional (c : conditional) (s : state) : bool :=
+  match c with
+| Not_Equal r1 r2 => negb (Word.eq (get_register s r1) (get_register s r2))
+| Equal r1 r2 => Word.eq (get_register s r1) (get_register s r2)
+| Greater r1 r2 => Word.lt (get_register s r2) (get_register s r1)
+| Greater_Equal r1 r2 => orb (Word.lt (get_register s r2) (get_register s r1)) (Word.eq (get_register s r1) (get_register s r2))
+| Above r1 r2 => Word.ltu (get_register s r2) (get_register s r1)
+| Above_Equal r1 r2 => orb (Word.ltu (get_register s r2) (get_register s r1)) (Word.eq (get_register s r1) (get_register s r2))
+| Lesser r1 r2 => Word.lt (get_register s r1) (get_register s r2)
+| Lesser_Equal r1 r2 => orb (Word.lt (get_register s r1) (get_register s r2)) (Word.eq (get_register s r1) (get_register s r2))
+| Below r1 r2 => Word.ltu (get_register s r1) (get_register s r2)
+| Below_Equal r1 r2 => orb (Word.ltu (get_register s r1) (get_register s r2)) (Word.eq (get_register s r1) (get_register s r2))
+| Counter_Register_Zero => Word.eq (get_register s rcx) (Word.repr 0)
+end.
+
 Definition run_instr (inst : instr_class) (s : state) : state := 
   match inst with 
 | Heap_Read r_dst r_src r_base => set_register s r_dst (read_heap s (Word.add (get_register s r_src) (get_register s r_base)))
@@ -109,6 +125,7 @@ Definition run_instr (inst : instr_class) (s : state) : state :=
 | Stack_Contract i => contract_stack s i
 | Stack_Read r i => set_register s r (read_stack s i)
 | Stack_Write i r => write_stack s i (get_register s r)
+| Branch c => s
 (*TODO: Make sure calls are right*)
 | Indirect_Call r => s
 | Direct_Call => s
@@ -147,6 +164,8 @@ Inductive instr_class_istep : instr_class -> state -> state -> Prop :=
 | I_Stack_Write: forall st i r_src,
     Stack_Write i r_src / st i--> write_stack st i (get_register st r_src)
 (* those calls might also be wrong *)
+| I_Branch: forall st cond,
+    Branch cond / st i--> st
 | I_Indirect_Call: forall st reg,
     Indirect_Call reg / st i-->  st
 | I_Direct_Call: forall st,
@@ -182,6 +201,7 @@ Proof.
 - apply I_Stack_Contract.
 - apply I_Stack_Read.
 - apply I_Stack_Write.
+- apply I_Branch.
 - apply I_Indirect_Call.
 - apply I_Direct_Call.
 - apply I_Ret.

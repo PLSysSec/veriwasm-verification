@@ -221,11 +221,6 @@ Proof.
     + apply multi_refl.
 Qed.
 
-Record cfg_ty := {
-  nodes : list basic_block;
-  edges : list (basic_block * basic_block)
-}.
-
 Lemma register_get_after_set_eq : forall (abs_regs : abs_registers_ty) reg v,
     map_get (map_set register_eq_dec abs_regs reg v) reg = v.
 Proof.
