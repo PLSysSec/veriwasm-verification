@@ -119,7 +119,6 @@ Inductive info_less_eq_safe : info -> info -> Prop :=
 | Same_Info_Less_Safe : forall i,
   info_less_eq_safe i i.
 
-(* TODO: make this loopy *)
 (* TODO: This doesn't consider flags or memory *)
 Reserved Notation " st ⊑ st' "
                   (at level 45, st' at level 44).
