@@ -85,7 +85,7 @@ Inductive safe_instr_class : instr_class -> state -> Prop :=
 Fixpoint is_basic_block_safe (s : state) (bb : basic_block) : bool :=
 match bb with
 | nil => true
-| i :: bb' => andb (is_instr_class_safe s i) (is_basic_block_safe (run_instr i s) bb') 
+| i :: bb' => andb (is_instr_class_safe s i) (is_basic_block_safe (run_instr i s) bb')
 end.
 *)
 
@@ -113,6 +113,19 @@ Definition abstractify (s : state) : abs_state :=
 {| abs_regs := abstractify_registers s s.(regs);
    abs_stack := abstractify_list s s.(stack) |}.
 
+Inductive info_less_eq_safe : info -> info -> Prop :=
+| Unbounded_Less_Safe : forall i,
+  info_less_eq_safe unbounded i
+| Same_Info_Less_Safe : forall i,
+  info_less_eq_safe i i.
+
+(* TODO: make this loopy *)
+(* TODO: This doesn't consider flags or memory *)
+Reserved Notation " st ⊑ st' "
+                  (at level 45, st' at level 44).
+Definition abs_state_less_eq_safe (st : abs_state) (st' : abs_state) : Prop :=
+  forall r st st', info_less_eq_safe (st.(abs_regs) r) (st'.(abs_regs) r).
+
 Lemma safe_mem_base : forall s i,
   abstractify_int64 s i = mem_base ->
   Word.eq i s.(heap_base) = true.
@@ -135,7 +148,7 @@ Proof.
     * remember (member (function_table s) i) as not_goal. destruct not_goal; inversion H.
 Qed.
 
-Lemma safe_function_index : forall s i, 
+Lemma safe_function_index : forall s i,
   abstractify_int64 s i = cf_bounded ->
   member s.(function_table) i = true.
 Proof.
@@ -146,7 +159,7 @@ Proof.
     * remember (Word.lt i fourGB) as not_goal. destruct not_goal; inversion H.
 Qed.
 
-Lemma safe_function_return : forall s i, 
+Lemma safe_function_return : forall s i,
   abstractify_int64 s i = cf_bounded ->
   member s.(function_table) i = true.
 Proof.
@@ -159,11 +172,11 @@ Qed.
 
 Theorem instr_class_vstep_safe : forall i abs_st abs_st' st,
   abs_st = abstractify st ->
-  i / abs_st v--> abs_st' -> 
+  i / abs_st v--> abs_st' ->
   safe_instr_class i st.
 Proof.
   intros i abs_st abs_st' st Hst Hstep. induction Hstep; subst.
-- apply I_Heap_Read_Safe. 
+- apply I_Heap_Read_Safe.
   + inversion H0. unfold abstractify_registers, abstractify_int64 in H2. apply safe_mem_base; auto.
   + inversion H0. unfold abstractify_registers, abstractify_int64 in H2. apply safe_mem_bound in H2; auto.
 - apply I_Heap_Write_Safe.
@@ -190,14 +203,14 @@ Proof.
   inversion H. unfold abstractify_list in H1. apply map_eq_nil in H1. rewrite H1. auto.
 Qed.
 
-Theorem safe_instr : 
+Theorem safe_instr :
   forall i abs_st abs_st' st,
     abs_st = abstractify st ->
     instr_class_vstep i abs_st abs_st' ->
     is_instr_class_safe st i = true.
 Proof.
   intros i abs_st abst_st' st Hst Hstep. unfold is_instr_class_safe, is_mem_bounded. induction Hstep; subst; auto.
-- apply andb_true_intro. split. 
+- apply andb_true_intro. split.
   + unfold get_register_info, map_get, abstractify, abstractify_registers in H.
     simpl in H. apply safe_mem_base. auto.
   + unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
@@ -225,12 +238,12 @@ Proof.
 Qed.
 
 (*
-Lemma basic_helper : forall a bb abs_st abs_st' abs_st'', 
+Lemma basic_helper : forall a bb abs_st abs_st' abs_st'',
 multi basic_block_flow_function (a :: bb, abs_st) (nil, abs_st'') ->
-   basic_block_flow_function (a :: bb, abs_st) (bb, abs_st') 
+   basic_block_flow_function (a :: bb, abs_st) (bb, abs_st')
 /\ multi basic_block_flow_function (bb, abs_st') (nil, abs_st'').
 Proof.
-  
+
   intros. eapply multi_step in H. induction a.
 - inversion H. inversion H0. inversion H1. subst. split.
 
@@ -253,8 +266,8 @@ Proof.
 unfold set_register, set_register_info, abstractify. simpl. unfold abstractify_registers. unfold map_set. simpl.
   unfold abstractify_int64. simpl.
 Admitted.
-  
-Theorem basic_block_vstep_safe : 
+
+Theorem basic_block_vstep_safe :
   forall bb abs_st abs_st' st,
   abs_st = abstractify st ->
   multi_basic_block_vstep (bb, abs_st) (nil, abs_st') ->
@@ -265,7 +278,7 @@ Proof.
 - intros st abs_st Hst Hstep. inversion Hstep; subst.  inversion H; subst.
   assert (exists st'', a / st i--> st'').
 { apply instr_class_always_isteps. }
-  inversion H1. 
+  inversion H1.
   apply I_Basic_Block_Cons_Safe with (st' := x).
   + apply instr_class_vstep_safe with (abs_st := abstractify st) (abs_st' := st'); auto.
   + auto.
