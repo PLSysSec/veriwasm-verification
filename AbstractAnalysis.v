@@ -3,31 +3,46 @@ Require Import BoundedLattice.
 Require Import Coq.Lists.List. 
 
 Record absStateLattice := {
-  heap_base        : BoundedSet;
-  mem_bounded      : BoundedSet;
-  fn_table_bounded : BoundedSet;
+  heap_base         : BoundedSet;
+  heap              : BoundedSet;
+  fn_table          : BoundedSet;
 }.
 
 Definition unbounded_lattice :=
-  {| heap_base = top;
-     mem_bounded = top;
-     fn_table_bounded = top; |}
+  {| heap_base := top;
+     heap := top;
+     fn_table := top; |}.
+
+Definition heap_base_bounded_lattice :=
+  {| heap_base := bounded;
+     heap := top;
+     fn_table := top; |}.
+
+Definition heap_bounded_lattice :=
+  {| heap_base := top;
+     heap := bounded;
+     fn_table := top; |}.
+
+Definition fn_table_bounded_lattice :=
+  {| heap_base := top;
+     heap := top;
+     fn_table := bounded; |}.
 
 Definition absStateLattice_join (a : absStateLattice) (b : absStateLattice) : absStateLattice :=
   {| heap_base := join_BoundedSet a.(heap_base) b.(heap_base);
-     mem_bounded := join_BoundedSet a.(mem_bounded) b.(mem_bounded);
-     fn_table_bounded := join_BoundedSet a.(fn_table_bounded) b.(fn_table_bounded) |}.
+     heap := join_BoundedSet a.(heap) b.(heap);
+     fn_table := join_BoundedSet a.(fn_table) b.(fn_table) |}.
 
 Definition absStateLattice_meet (a : absStateLattice) (b : absStateLattice) : absStateLattice :=
   {| heap_base := meet_BoundedSet a.(heap_base) b.(heap_base);
-     mem_bounded := meet_BoundedSet a.(mem_bounded) b.(mem_bounded);
-     fn_table_bounded := meet_BoundedSet a.(fn_table_bounded) b.(fn_table_bounded) |}.
+     heap := meet_BoundedSet a.(heap) b.(heap);
+     fn_table := meet_BoundedSet a.(fn_table) b.(fn_table) |}.
 
 Definition abs_registers_ty := fmap register absStateLattice.
 
 Definition abs_stack_ty := list absStateLattice.
 
-(* Definition heap_ty := list info.*)
+(* Definition heap_ty := list lattice.*)
 
 (* Definition flags_ty := fmap flag abs_state. *)
 
@@ -39,7 +54,9 @@ Record abs_state := {
 }.
 
 Definition abs_empty_state :=
-{| abs_regs := fun r => if register_eq_dec r rdi then mem_base else unbounded;
+{| abs_regs := fun r => if register_eq_dec r rdi
+                          then heap_base_bounded_lattice
+                          else unbounded_lattice;
    abs_stack := nil;
 (*   heap := nil *)|}.
 
@@ -83,7 +100,7 @@ Definition set_flags (s : machine) (f : flags_ty) : machine :=
 Definition expand_abs_stack (s : abs_state) (i : nat) : abs_state :=
 {| abs_regs := s.(abs_regs);
 (*   flags := s.(flags); *)
-   abs_stack := s.(abs_stack) ++ (repeat unbounded i);
+   abs_stack := s.(abs_stack) ++ (repeat unbounded_lattice i);
 (*   heap := s.(heap) *)|}.
 
 Fixpoint contract_abs_stack (s : abs_state) (i : nat) : abs_state :=
@@ -149,27 +166,29 @@ Definition set_stack_lattice (s : abs_state) (index : nat) (l : absStateLattice)
 Definition empty {A} (l : list A) :=
   l = nil.
 
+(* TODO: Start using the heap *)
+(* TODO: Add check instructions for everything else *)
 Reserved Notation " i '/' st 'v-->' st' "
                   (at level 40, st' at level 39).
 Inductive instr_class_vstep : instr_class -> abs_state -> abs_state -> Prop := 
 | V_Heap_Read: forall st r_base r_src r_dst,
     (* r_base <> r_src -> *) (* not sure if we need this to make the proofs easier *)
-    get_register_info st r_base = mem_base ->
-    get_register_info st r_src = mem_bounded ->
-    Heap_Read r_dst r_src r_base / st v--> (set_register_info st r_dst unbounded) 
+    (get_register_lattice st r_base).(heap_base) = bounded ->
+    (get_register_lattice st r_src).(heap) = bounded ->
+    Heap_Read r_dst r_src r_base / st v--> (set_register_lattice st r_dst unbounded_lattice) 
 | V_Heap_Write: forall st r_base r_src r_dst,
     (* r_base <> r_src -> *) (* not sure if we need this to make the proofs easier *)
-    get_register_info st r_base = mem_base ->
-    get_register_info st r_dst = mem_bounded -> 
+    (get_register_lattice st r_base).(heap_base) = bounded ->
+    (get_register_lattice st r_dst).(heap) = bounded -> 
     Heap_Write r_dst r_src r_base / st v--> st
 | V_Heap_Check: forall st r_src,
-    Heap_Check r_src / st v--> (set_register_info st r_src mem_bounded)
+    Heap_Check r_src / st v--> (set_register_lattice st r_src heap_bounded_lattice)
 | V_CF_Check: forall st r_src,
-    CF_Check r_src / st v--> (set_register_info st r_src cf_bounded)
+    CF_Check r_src / st v--> (set_register_lattice st r_src fn_table_bounded_lattice)
 | V_Reg_Move: forall st r_src r_dst,
-    Reg_Move r_dst r_src / st v--> (set_register_info st r_dst (get_register_info st r_src))
+    Reg_Move r_dst r_src / st v--> (set_register_lattice st r_dst (get_register_lattice st r_src))
 | V_Reg_Write: forall st r_dst val,
-    Reg_Write r_dst val / st v--> (set_register_info st r_dst unbounded)
+    Reg_Write r_dst val / st v--> (set_register_lattice st r_dst unbounded_lattice)
 | V_Stack_Expand: forall st i,
     Stack_Expand i / st v--> (expand_abs_stack st i)
 | V_Stack_Contract: forall st i,
@@ -177,16 +196,16 @@ Inductive instr_class_vstep : instr_class -> abs_state -> abs_state -> Prop :=
     Stack_Contract i / st v--> (contract_abs_stack st i)
 | V_Stack_Read: forall st i r_dst,
     i < (length st.(abs_stack)) ->
-    Stack_Read r_dst i / st v--> (set_register_info st r_dst (get_stack_info st i))
+    Stack_Read r_dst i / st v--> (set_register_lattice st r_dst (get_stack_lattice st i))
 | V_Stack_Write: forall st i r_src,
     i < (length st.(abs_stack)) ->
-    Stack_Write i r_src / st v--> (set_stack_info st i (get_register_info st r_src))
+    Stack_Write i r_src / st v--> (set_stack_lattice st i (get_register_lattice st r_src))
 | V_Indirect_Call: forall st reg,
-    get_register_info st reg = cf_bounded ->
-    get_register_info st rdi = mem_base ->
+    (get_register_lattice st reg).(fn_table) = bounded ->
+    (get_register_lattice st rdi).(heap_base) = bounded ->
     Indirect_Call reg / st v-->  st
 | V_Direct_Call: forall st,
-    get_register_info st rdi = mem_base ->
+    (get_register_lattice st rdi).(heap_base) = bounded ->
     Direct_Call / st v-->  st
 | V_Ret: forall st,
     empty st.(abs_stack) ->
@@ -255,11 +274,12 @@ Proof.
 Qed.
 
 Definition safe_stack_read (st : abs_state) (r_base : register) (r_src : register) (r_dst : register) : Prop :=
-  r_base <> r_src /\ get_register_info st r_base = mem_base /\ get_register_info st r_src = mem_bounded.
+  r_base <> r_src /\ (get_register_lattice st r_base).(heap_base) = bounded
+                  /\ (get_register_lattice st r_src).(heap) = bounded.
 
 Lemma read_after_check_is_safe: forall r_base r_src r_dst st, exists st' st'',
   r_base <> r_src ->
-  get_register_info st r_base = mem_base ->
+  (get_register_lattice st r_base).(heap_base) = bounded ->
   Heap_Check r_src / st v--> st' /\ Heap_Read r_dst r_src r_base / st' v--> st''.
 Proof.
   intros r_base r_src r_dst st. 
@@ -267,6 +287,8 @@ Proof.
   split.
   - apply V_Heap_Check.
   - apply V_Heap_Read.
-    + unfold get_register_info in *. unfold set_register_info. simpl. rewrite register_get_after_set_neq; auto.
-    + unfold get_register_info in *. unfold set_register_info. simpl. rewrite register_get_after_set_eq; auto.
+    + unfold get_register_lattice in *. unfold set_register_lattice. simpl.
+      rewrite register_get_after_set_neq; auto.
+    + unfold get_register_lattice in *. unfold set_register_lattice. simpl.
+      rewrite register_get_after_set_eq; auto.
 Qed.
