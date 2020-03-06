@@ -99,22 +99,3 @@ Record HeapCheckAbstrState := {
   HoldFnTableMd    : YesOrBottom;
   HoldFnPtrTable   : YesOrBottom;
 }.
-
-Record RegsLattice := {
-  raxLattice : HeapCheckAbstrState;
-  rbxLattice : HeapCheckAbstrState;
-  rcxLattice : HeapCheckAbstrState;
-  rdxLattice : HeapCheckAbstrState;
-  rdiLattice : HeapCheckAbstrState;
-  rsiLattice : HeapCheckAbstrState;
-  rspLattice : HeapCheckAbstrState;
-  rbpLattice : HeapCheckAbstrState;
-  r8Lattice  : HeapCheckAbstrState;
-  r9Lattice  : HeapCheckAbstrState;
-  r10Lattice : HeapCheckAbstrState;
-  r11Lattice : HeapCheckAbstrState;
-  r12Lattice : HeapCheckAbstrState;
-  r13Lattice : HeapCheckAbstrState;
-  r14Lattice : HeapCheckAbstrState;
-  r15Lattice : HeapCheckAbstrState;
-}

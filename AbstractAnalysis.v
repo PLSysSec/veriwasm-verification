@@ -1,15 +1,31 @@
 Require Import Machine.
+Require Import BoundedLattice.
 Require Import Coq.Lists.List. 
 
-Inductive info : Set :=
-| unbounded
-| mem_bounded
-| cf_bounded
-| mem_base.
+Record absStateLattice := {
+  heap_base        : BoundedSet;
+  mem_bounded      : BoundedSet;
+  fn_table_bounded : BoundedSet;
+}.
 
-Definition abs_registers_ty := fmap register info.
+Definition unbounded_lattice :=
+  {| heap_base = top;
+     mem_bounded = top;
+     fn_table_bounded = top; |}
 
-Definition abs_stack_ty := list info.
+Definition absStateLattice_join (a : absStateLattice) (b : absStateLattice) : absStateLattice :=
+  {| heap_base := join_BoundedSet a.(heap_base) b.(heap_base);
+     mem_bounded := join_BoundedSet a.(mem_bounded) b.(mem_bounded);
+     fn_table_bounded := join_BoundedSet a.(fn_table_bounded) b.(fn_table_bounded) |}.
+
+Definition absStateLattice_meet (a : absStateLattice) (b : absStateLattice) : absStateLattice :=
+  {| heap_base := meet_BoundedSet a.(heap_base) b.(heap_base);
+     mem_bounded := meet_BoundedSet a.(mem_bounded) b.(mem_bounded);
+     fn_table_bounded := meet_BoundedSet a.(fn_table_bounded) b.(fn_table_bounded) |}.
+
+Definition abs_registers_ty := fmap register absStateLattice.
+
+Definition abs_stack_ty := list absStateLattice.
 
 (* Definition heap_ty := list info.*)
 
@@ -113,21 +129,21 @@ Next Obligation. rewrite <- plus_n_O. repeat (rewrite <- plus_n_Sm). reflexivity
 Qed.
 *)
 
-Definition get_register_info (s : abs_state) (r : register) : info :=
+Definition get_register_lattice (s : abs_state) (r : register) : absStateLattice :=
   map_get s.(abs_regs) r.
 
-Definition set_register_info (s : abs_state) (r : register) (i : info) : abs_state :=
-{| abs_regs := map_set register_eq_dec s.(abs_regs) r i;
+Definition set_register_lattice (s : abs_state) (r : register) (l : absStateLattice) : abs_state :=
+{| abs_regs := map_set register_eq_dec s.(abs_regs) r l;
    abs_stack := s.(abs_stack);
 (*   heap := s.(heap) *) |}.
 
-Definition get_stack_info (s : abs_state) (index : nat) : info :=
-nth index s.(abs_stack) unbounded.
+Definition get_stack_lattice (s : abs_state) (index : nat) : absStateLattice :=
+nth index s.(abs_stack) unbounded_lattice.
 
 (* this needs to be updated *)
-Definition set_stack_info (s : abs_state) (index : nat) (i : info) : abs_state :=
+Definition set_stack_lattice (s : abs_state) (index : nat) (l : absStateLattice) : abs_state :=
 {| abs_regs := s.(abs_regs);
-   abs_stack := update s.(abs_stack) index i;
+   abs_stack := update s.(abs_stack) index l;
  (*  heap := s.(heap) *) |}.
 
 Definition empty {A} (l : list A) :=
