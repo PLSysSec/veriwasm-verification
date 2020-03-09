@@ -67,7 +67,7 @@ Inductive instr_class :=
 | Heap_Read : register -> register -> register -> instr_class
 | Heap_Write : register -> register -> register -> instr_class
 | Heap_Check : register -> instr_class
-| CF_Check : register -> instr_class
+| Call_Check : register -> instr_class
 | Reg_Move : register -> register -> instr_class
 | Reg_Write : register -> value -> instr_class
 | Stack_Expand : nat -> instr_class

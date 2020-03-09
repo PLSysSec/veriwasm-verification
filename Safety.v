@@ -51,8 +51,8 @@ Inductive safe_instr_class : instr_class -> state -> Prop :=
   safe_instr_class (Heap_Write r_dst r_val r_base) st
 | I_Heap_Check_Safe: forall reg st,
   safe_instr_class (Heap_Check reg) st
-| I_CF_Check_Safe: forall reg st,
-  safe_instr_class (CF_Check reg) st
+| I_Call_Check_Safe: forall reg st,
+  safe_instr_class (Call_Check reg) st
 | I_Reg_Move_Safe: forall r_dst r_src st,
   safe_instr_class (Reg_Move r_dst r_src) st
 | I_Reg_Write_Safe: forall r_dst val st,
@@ -182,7 +182,7 @@ Proof.
   + inversion H0. unfold abstractify_registers, abstractify_int64 in H2. apply safe_mem_base; auto.
   + inversion H0. unfold abstractify_registers, abstractify_int64 in H2. apply safe_mem_bound in H2; auto.
 - apply I_Heap_Check_Safe.
-- apply I_CF_Check_Safe.
+- apply I_Call_Check_Safe.
 - apply I_Reg_Move_Safe.
 - apply I_Reg_Write_Safe.
 - apply I_Stack_Expand_Safe.

@@ -118,7 +118,7 @@ Definition run_instr (inst : instr_class) (s : state) : state :=
 | Heap_Read r_dst r_src r_base => set_register s r_dst (read_heap s (Word.add (get_register s r_src) (get_register s r_base)))
 | Heap_Write r_dst r_val r_base => write_heap s (Word.add (get_register s r_dst) (get_register s r_base)) (get_register s r_val)
 | Heap_Check r => set_register s r (Word.modu (get_register s r) fourGB)
-| CF_Check r => s (*TODO: Figure out wtf to do.*)
+| Call_Check r => s (*TODO: Figure out wtf to do.*)
 | Reg_Write r v => set_register s r (value_to_int64 s v)
 | Reg_Move r_dst r_src => set_register s r_dst (get_register s r_src)
 | Stack_Expand i => expand_stack s i
@@ -149,8 +149,8 @@ Inductive instr_class_istep : instr_class -> state -> state -> Prop :=
     Heap_Write r_dst r_val r_base / st i--> write_heap st (Word.add (get_register st r_dst) (get_register st r_base)) (get_register st r_val)
 | I_Heap_Check: forall st r_src,
     Heap_Check r_src / st i--> set_register st r_src (Word.modu (get_register st r_src) fourGB)
-| I_CF_Check: forall st r_src,
-    CF_Check r_src / st i--> st (* probably wrong *)
+| I_Call_Check: forall st r_src,
+    Call_Check r_src / st i--> st (* probably wrong *)
 | I_Reg_Move: forall st r_src r_dst,
     Reg_Move r_dst r_src / st i--> set_register st r_dst (get_register st r_src)
 | I_Reg_Write: forall st r_dst val,
@@ -194,7 +194,7 @@ Proof.
 - apply I_Heap_Read.
 - apply I_Heap_Write.
 - apply I_Heap_Check.
-- apply I_CF_Check.
+- apply I_Call_Check.
 - apply I_Reg_Move.
 - apply I_Reg_Write. 
 - apply I_Stack_Expand.

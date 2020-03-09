@@ -183,8 +183,8 @@ Inductive instr_class_vstep : instr_class -> abs_state -> abs_state -> Prop :=
     Heap_Write r_dst r_src r_base / st v--> st
 | V_Heap_Check: forall st r_src,
     Heap_Check r_src / st v--> (set_register_lattice st r_src heap_bounded_lattice)
-| V_CF_Check: forall st r_src,
-    CF_Check r_src / st v--> (set_register_lattice st r_src fn_table_bounded_lattice)
+| V_Call_Check: forall st r_src,
+    Call_Check r_src / st v--> (set_register_lattice st r_src fn_table_bounded_lattice)
 | V_Reg_Move: forall st r_src r_dst,
     Reg_Move r_dst r_src / st v--> (set_register_lattice st r_dst (get_register_lattice st r_src))
 | V_Reg_Write: forall st r_dst val,
