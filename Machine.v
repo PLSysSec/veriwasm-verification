@@ -88,7 +88,7 @@ Inductive edge_class : Set :=
 
 Record cfg_ty := {
   nodes : list basic_block;
-  edges : (list (basic_block * basic_block) * edge_class)
+  edges : list ((basic_block * basic_block) * edge_class)
 }.
 
 Definition register_eq_dec : forall (x y:register), {x=y} + {x<>y}.
