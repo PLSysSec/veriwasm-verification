@@ -1,5 +1,6 @@
 (*Require Import Coq.FSets.FMaps.*)
 Require Import Coq.Lists.List.
+Require Import Coq.Program.Basics.
 Require Import Bits.
 (*Require Import Coq.Vectors.Vector.*)
 (*Require Import SFI.Machine.Bits.*)
@@ -74,7 +75,6 @@ Inductive instr_class :=
 | Stack_Contract : nat -> instr_class
 | Stack_Read : register -> nat -> instr_class
 | Stack_Write : nat -> register -> instr_class
-| Branch : conditional -> instr_class
 | Indirect_Call : register -> instr_class
 | Direct_Call : instr_class
 | Ret : instr_class.
@@ -86,13 +86,64 @@ Inductive edge_class : Set :=
 | False_Branch
 | Non_Branch.
 
+Definition node_ty := prod (prod basic_block (option conditional)) nat.
+
 Record cfg_ty := {
-  nodes : list basic_block;
-  edges : list ((basic_block * basic_block) * edge_class)
+  nodes : list node_ty;
+  edges : list ((node_ty * node_ty) * edge_class);
+  start_node : node_ty
 }.
 
-Definition register_eq_dec : forall (x y:register), {x=y} + {x<>y}.
-  intros ; decide equality.
+Definition unique_bb (cfg : cfg_ty) : Prop :=
+  forall i i',
+    eq (nth i cfg.(nodes)) (nth i' cfg.(nodes)) ->
+    eq i i'.
+
+Definition edges_in_nodes (cfg : cfg_ty) : Prop :=
+  forall e,
+    In e cfg.(edges) ->
+    In ((compose fst fst) e) cfg.(nodes) /\
+    In ((compose snd fst) e) cfg.(nodes).
+
+(* TODO: This definition is super messy *)
+Definition well_formed_cfg (cfg : cfg_ty) : Prop :=
+  unique_bb cfg /\ edges_in_nodes cfg.
+
+Definition register_eq_dec : forall (x y : register), {x=y} + {x<>y}.
+  intros; decide equality.
+Defined.
+
+Definition conditional_eq_dec : forall (x y : conditional), {x=y} + {x<>y}.
+  intros; decide equality; try apply register_eq_dec.
+Defined.
+
+Definition edge_class_eq_dec : forall (x y : edge_class), {x=y} + {x<>y}.
+  intros; decide equality.
+Defined.
+
+Definition value_eq_dec : forall (x y: value), {x=y} + {x<>y}.
+  intros; decide equality; try apply register_eq_dec; try apply int64_eq_dec.
+Defined.
+
+Definition instr_class_eq_dec : forall (x y : instr_class), {x=y} + {x<>y}.
+  intros; decide equality; try apply register_eq_dec; try apply value_eq_dec; decide equality.
+Defined.
+
+Definition basic_block_eq_dec : forall (x y : basic_block), {x=y} + {x<>y}.
+  intros; decide equality; apply instr_class_eq_dec.
+Defined.
+
+Definition node_ty_eq_dec : forall (x y : node_ty), {x=y} + {x<>y}.
+  intros; decide equality; decide equality.
+  - decide equality. apply conditional_eq_dec.
+  - apply basic_block_eq_dec.
+Defined.
+
+Definition cfg_ty_eq_dec : forall (x y : cfg_ty), {x=y} + {x<>y}.
+  intros; decide equality; try apply node_ty_eq_dec.
+  - decide equality. decide equality; try apply edge_class_eq_dec.
+    decide equality; apply node_ty_eq_dec.
+  - decide equality. apply node_ty_eq_dec.
 Defined.
 
 Inductive flag : Set :=
