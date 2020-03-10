@@ -125,7 +125,6 @@ Definition run_instr (inst : instr_class) (s : state) : state :=
 | Stack_Contract i => contract_stack s i
 | Stack_Read r i => set_register s r (read_stack s i)
 | Stack_Write i r => write_stack s i (get_register s r)
-| Branch c => s
 (*TODO: Make sure calls are right*)
 | Indirect_Call r => s
 | Direct_Call => s
@@ -164,8 +163,6 @@ Inductive instr_class_istep : instr_class -> state -> state -> Prop :=
 | I_Stack_Write: forall st i r_src,
     Stack_Write i r_src / st i--> write_stack st i (get_register st r_src)
 (* those calls might also be wrong *)
-| I_Branch: forall st cond,
-    Branch cond / st i--> st
 | I_Indirect_Call: forall st reg,
     Indirect_Call reg / st i-->  st
 | I_Direct_Call: forall st,
@@ -201,7 +198,6 @@ Proof.
 - apply I_Stack_Contract.
 - apply I_Stack_Read.
 - apply I_Stack_Write.
-- apply I_Branch.
 - apply I_Indirect_Call.
 - apply I_Direct_Call.
 - apply I_Ret.
@@ -209,3 +205,37 @@ Qed.
 
 Definition run_basic_block (bb : basic_block) (s : state) : state :=
   fold_left (fun s i => run_instr i s) bb s.
+
+(* TODO: Not sure why this is necessary, but it won't go through
+ * if I try to inline node_ty_eq_dec *)
+Definition node_ty_eq (a : node_ty) (b : node_ty) : bool :=
+  if node_ty_eq_dec a b
+  then true
+  else false.
+
+(* TODO: Not sure why this is necessary, but it won't go through
+ * if I try to inline edge_class_eq_dec *)
+Definition edge_class_eq (a : edge_class) (b : edge_class) : bool :=
+  if edge_class_eq_dec a b
+  then true
+  else false.
+
+Fixpoint run_cfg (cfg : cfg_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
+  match fuel with
+  | 0 => s
+  | S n' =>
+    let s' := run_basic_block (fst (fst n)) s in
+    match (snd (fst n)) with
+    | Some c =>
+        if run_conditional c s'
+        then
+          match find (fun e => andb
+              (node_ty_eq (fst (fst e)) n)
+              (edge_class_eq (snd e) True_Branch)) cfg.(edges) with
+          | Some e => run_cfg cfg (snd (fst e)) s' n'
+          | None => s'
+          end
+        else s'
+    | None => s'
+    end
+  end.
