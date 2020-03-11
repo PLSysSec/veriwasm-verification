@@ -34,7 +34,7 @@ Definition is_instr_class_safe (s : state) (i : instr_class) : bool :=
 | Stack_Contract i => is_stack_contract_safe s i
 | Stack_Read _ i => is_stack_index_safe s i
 | Stack_Write i _ => is_stack_index_safe s i
-| Direct_Call => is_rdi_heapbase s
+| Direct_Call _=> is_rdi_heapbase s
 | Indirect_Call r => andb (is_rdi_heapbase s) (is_function_index_safe s r)
 | Ret => is_return_safe s
 | _ => true
@@ -72,9 +72,11 @@ Inductive safe_instr_class : instr_class -> state -> Prop :=
   Word.eq (get_register st rdi) st.(heap_base) = true ->
   member st.(function_table) (get_register st reg) = true ->
   safe_instr_class (Indirect_Call reg) st
-| I_Direct_Call_Safe: forall st,
+| I_Direct_Call_Safe: forall st name,
   Word.eq (get_register st rdi) st.(heap_base) = true ->
-  safe_instr_class (Direct_Call) st
+  safe_instr_class (Direct_Call name) st
+| I_Branch_Safe: forall st c,
+  safe_instr_class (Branch c) st
 | I_Ret_Safe: forall st,
   length st.(stack) = 0 ->
   safe_instr_class (Ret) st.
