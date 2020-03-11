@@ -204,9 +204,9 @@ Inductive instr_class_vstep : instr_class -> abs_state -> abs_state -> Prop :=
     (get_register_lattice st reg).(fn_table) = bounded ->
     (get_register_lattice st rdi).(heap_base) = bounded ->
     Indirect_Call reg / st v-->  st
-| V_Direct_Call: forall st,
+| V_Direct_Call: forall st str,
     (get_register_lattice st rdi).(heap_base) = bounded ->
-    Direct_Call / st v-->  st
+    Direct_Call str / st v-->  st
 | V_Ret: forall st,
     empty st.(abs_stack) ->
     Ret / st v-->  st
