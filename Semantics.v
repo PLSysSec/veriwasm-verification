@@ -226,22 +226,22 @@ Definition run_basic_block (bb : basic_block) (s : state) : state :=
   fold_left (fun s i => run_instr i s) bb s.
 
 (* TODO: Not sure why this is necessary, but it won't go through
- * if I try to inline node_ty_eq_dec *)
-Definition node_ty_eq (a : node_ty) (b : node_ty) : bool :=
-  if node_ty_eq_dec a b
+ * if I try to inline node_ty_eqb_dec *)
+Definition node_ty_eqb (a : node_ty) (b : node_ty) : bool :=
+  if node_ty_eqb_dec a b
   then true
   else false.
 
 (* TODO: Not sure why this is necessary, but it won't go through
- * if I try to inline edge_class_eq_dec *)
-Definition edge_class_eq (a : edge_class) (b : edge_class) : bool :=
-  if edge_class_eq_dec a b
+ * if I try to inline edge_class_eqb_dec *)
+Definition edge_class_eqb (a : edge_class) (b : edge_class) : bool :=
+  if edge_class_eqb_dec a b
   then true
   else false.
 
 Definition find_edge (cfg : cfg_ty) (n : node_ty) (e : edge_class) : option node_ty :=
-  match find (fun x => andb (node_ty_eq (fst (fst x)) n)
-                            (edge_class_eq (snd x) e))
+  match find (fun x => andb (node_ty_eqb (fst (fst x)) n)
+                            (edge_class_eqb (snd x) e))
              cfg.(edges) with
   | Some edge => Some (snd (fst edge))
   | None => None
