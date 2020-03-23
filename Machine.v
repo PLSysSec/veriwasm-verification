@@ -3,6 +3,7 @@ Require Import Coq.Lists.List.
 Require Import Coq.Program.Basics.
 Require Import Coq.Strings.String.
 Require Import VerifiedVerifier.Bits.
+Require Import VerifiedVerifier.Maps.
 (*Require Import Coq.Vectors.Vector.*)
 (*Require Import SFI.Machine.Bits.*)
 (*Require Import bbv.Word.*)
@@ -86,6 +87,7 @@ Inductive instr_class :=
 | Indirect_Call : register -> instr_class
 | Direct_Call : string -> instr_class
 | Branch : conditional -> instr_class
+
 | UniOp : uni_opcode -> register -> instr_class
 | BinOp : bin_opcode -> register -> register -> instr_class
 | DivOp : register -> instr_class
@@ -170,3 +172,22 @@ Inductive flag : Set :=
 | zf
 | pf
 | cf.
+
+
+Lemma register_get_after_set_eq : forall A (abs_regs : total_map register A) reg v,
+  (t_update register_eq_dec abs_regs reg v) reg = v.
+Proof.
+  intros A abs_regs reg v. unfold t_update. destruct (register_eq_dec reg reg).
+  - reflexivity.
+  - exfalso. apply n. reflexivity.
+Qed.
+
+Lemma register_get_after_set_neq : forall A (abs_regs : total_map register A) reg1 reg2 v,
+    reg1 <> reg2 ->
+    (t_update register_eq_dec abs_regs reg2 v) reg1 = abs_regs reg1.
+Proof.
+  intros A abs_regs reg1 reg2 v Heq. unfold t_update. destruct (register_eq_dec reg2 reg1).
+  - exfalso. apply Heq. auto.
+  - reflexivity.
+Qed.
+

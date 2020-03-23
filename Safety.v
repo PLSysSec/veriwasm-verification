@@ -128,17 +128,21 @@ Definition abstractify (s : state) : abs_state :=
 {| abs_regs := abstractify_registers s s.(regs);
    abs_stack := abstractify_list s s.(stack) |}.
 
-Inductive info_less_eq_safe : info -> info -> Prop :=
-| Unbounded_Less_Safe : forall i,
-  info_less_eq_safe empty_info i
-| Same_Info_Less_Safe : forall i,
-  info_less_eq_safe i i.
+Inductive leq_info : info -> info -> Prop :=
+| leq_info_bot : forall i,
+  leq_info empty_info i
+| leq_info_refl : forall i,
+  leq_info i i.
 
 (* TODO: This doesn't consider flags or memory *)
-Reserved Notation " st ⊑ st' "
+Reserved Notation " st ≤ st' "
                   (at level 45, st' at level 44).
-Definition abs_state_less_eq_safe (st : abs_state) (st' : abs_state) : Prop :=
-  forall r st st', info_less_eq_safe (st.(abs_regs) r) (st'.(abs_regs) r).
+Inductive leq_state : abs_state -> abs_state -> Prop :=
+| leq_state_rule: forall st st',
+  (forall reg, leq_info (get_register_info st reg) (get_register_info st' reg)) ->
+  (forall i, leq_info (get_stack_info st i) (get_stack_info st' i)) -> 
+  st ≤ st'
+where " st ≤ st' " := (leq_state st st').
 
 Lemma safe_mem_base : forall s i,
   (abstractify_int64 s i).(abs_heap_base) = bottom ->
@@ -269,12 +273,47 @@ Proof.
   +
 *)
 
+Lemma eq_thn_cond_true : forall {A} (cond : bool) (thn : A) (els : A),
+  (if cond then thn else els) = thn ->
+  thn <> els ->
+  cond = true.
+Proof.
+  intros A cond thn els. destruct cond; auto.
+Qed.
+
 Theorem instr_class_istep_abstractify_vstep: forall i st st' abs_st',
   i / abstractify st v--> abs_st' ->
   i / st i--> st' ->
-  abs_st' = abstractify st'.
+  abs_st' ≤ abstractify st'.
 Proof.
-  intros i st st' abs_st' Hv Hi. induction i; inversion Hv; inversion Hi; subst.
+  intros i st st' abs_st' Hv Hi. inversion Hv; subst. inversion Hi; subst.
+-inversion H; inversion H0. unfold is_heap_base_int64, is_heap_bounded_int64 in *.
+  apply eq_thn_cond_true in H2. apply eq_thn_cond_true in H3. apply leq_state_rule.
+  + intros reg. destruct (register_eq_dec reg r_dst).
+    * subst. simpl. rewrite register_get_after_set_eq. apply leq_info_bot.
+    * simpl. rewrite register_get_after_set_neq; auto. remember (read_heap st (Word.add (get_register st r_src) (get_register st r_base))) as v_dst.
+      simpl. unfold abstractify_registers. rewrite register_get_after_set_neq; auto.
+
+  unfold abstractify_int64. unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64.
+  rewrite eq_thn_cond_true.
+ subst.
+ rewrite (register_get_after_set_neq (regs st) r_dst v_dst reg). simpl.
+      rewrite register_get_after_set_neq.
+ subst.
+
+rewrite register_get_after_set_neq.
+  destruct reg, r_dst. try apply leq_info_bot. simpl. rewrite register_get_after_set_neq.
+    unfold abstractify_registers. unfold abstractify_int64. simpl. 
+   rewrite register_get_after_set_neq. auto. simpl.
+
+
+
+ inversion H2. subst.
+Search (if _ then _ else _). 
+ induction i. 
+- inversion Hv; subst. inversion Hi; subst. inversion H4. unfold is_heap_base_int64 in H0. inversion H0. 
+
+; inversion Hv; inversion Hi; subst.
 - unfold get_register_info, set_register_info in *. unfold t_update in *.
   unfold set_register, abstractify, abstractify_registers. simpl. unfold t_update. simpl. unfold abstractify_list.
   simpl. unfold abstractify_int64. simpl. admit.

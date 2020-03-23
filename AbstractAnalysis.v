@@ -292,23 +292,6 @@ Proof.
     + apply multi_refl.
 Qed.
 
-Lemma register_get_after_set_eq : forall (abs_regs : abs_registers_ty) reg v,
-  (t_update register_eq_dec abs_regs reg v) reg = v.
-Proof.
-  intros abs_regs reg v. unfold t_update. destruct (register_eq_dec reg reg).
-  - reflexivity.
-  - exfalso. apply n. reflexivity.
-Qed.
-
-Lemma register_get_after_set_neq : forall (abs_regs : abs_registers_ty) reg1 reg2 v,
-    reg1 <> reg2 ->
-    (t_update register_eq_dec abs_regs reg2 v) reg1 = abs_regs reg1.
-Proof.
-  intros abs_regs reg1 reg2 v Heq. unfold t_update. destruct (register_eq_dec reg2 reg1).
-  - exfalso. apply Heq. auto.
-  - reflexivity.
-Qed.
-
 Definition safe_stack_read (st : abs_state) (r_base : register) (r_src : register) (r_dst : register) : Prop :=
   r_base <> r_src /\ (get_register_info st r_base).(abs_heap_base) = bottom
                   /\ (get_register_info st r_src).(abs_heap_bound) = bottom.
