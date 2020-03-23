@@ -2,19 +2,21 @@ Require Import Coq.Lists.List.
 Require Import Coq.Lists.ListSet.
 Require Import Coq.Strings.String.
 Require Import BinInt.
-Require Import Machine.
-Require Import Bits.
+Require Import VerifiedVerifier.Machine.
+Require Import VerifiedVerifier.Bits.
+Require Import VerifiedVerifier.Maps.
 
+Type map.
 (*TODO: figure out if we need uints vs ints*)
-Definition registers_ty := fmap register int64.
+Definition registers_ty := total_map register int64.
 
 Definition stack_ty := list int64.
 
-Definition heap_ty := fmap int64 int64.
+Definition heap_ty := total_map int64 int64.
 
-Definition flags_ty := fmap flag int1.
+Definition flags_ty := total_map flag int1.
 
-Definition function_table_ty := fmap int64 string.
+Definition function_table_ty := partial_map int64 string.
 
 Record state := {
   regs : registers_ty;
@@ -28,16 +30,14 @@ Record state := {
 
 Fixpoint value_to_int64 (s : state) (v :value) : int64 :=
 match v with
-| A_Reg r => (regs s) r
-| A_Const c => c
-| A_MultPlus m v1 v2 => Word.mul m (Word.add (value_to_int64 s v1) (value_to_int64 s v2))
+| Const c => c
 end.
 
 Definition get_register (s : state) (r : register) : int64 :=
-  map_get s.(regs) r.
+  s.(regs) r.
 
 Definition set_register (s : state) (r : register) (v : int64) : state :=
-{| regs := map_set register_eq_dec s.(regs) r v;
+{| regs := t_update register_eq_dec s.(regs) r v;
    flags := s.(flags);
    stack := s.(stack);
    heap := s.(heap);
@@ -83,7 +83,7 @@ nth_default Word.zero s.(stack) i.
 Definition write_stack (s : state) (i : nat) (val : int64) : state :=
 {| regs := s.(regs);
    flags := s.(flags);
-   stack := update s.(stack) i val;
+   stack := Machine.update s.(stack) i val;
    heap := s.(heap);
    heap_base := s.(heap_base) ;
    function_table := s.(function_table);
@@ -96,7 +96,7 @@ Definition write_heap (s : state) (i : int64) (v : int64) : state :=
 {| regs := s.(regs);
 	 flags := s.(flags);
 	 stack := s.(stack);
-	 heap := map_set int64_eq_dec s.(heap) i v;
+	 heap := t_update int64_eq_dec s.(heap) i v;
    heap_base := s.(heap_base);
    function_table := s.(function_table);
    error_state := s.(error_state) |}.
@@ -144,6 +144,9 @@ Definition run_instr (inst : instr_class) (s : state) : state :=
 | Indirect_Call r => s
 | Direct_Call name => s
 | Branch c => s
+| UniOp op r_dst => s
+| BinOp op r_dst r_src => s
+| DivOp r_dst => s
 | Ret => s
 end.
 
@@ -185,6 +188,12 @@ Inductive instr_class_istep : instr_class -> state -> state -> Prop :=
     Direct_Call name / st i-->  st
 | I_Branch: forall st c,
     (Branch c) / st i--> st
+| I_UniOp: forall st op r_dst,
+    (UniOp op r_dst) / st i--> st
+| I_BinOp: forall st op r_dst r_src,
+    (BinOp op r_dst r_src) / st i--> st
+| I_DivOp : forall st r_dst,
+    (DivOp r_dst) / st i--> st
 | I_Ret: forall st,
     Ret / st i-->  st
   where " i '/' st 'i-->' st'" := (instr_class_istep i st st').
@@ -219,6 +228,9 @@ Proof.
 - apply I_Indirect_Call.
 - apply I_Direct_Call.
 - apply I_Branch.
+- apply I_UniOp.
+- apply I_BinOp.
+- apply I_DivOp.
 - apply I_Ret.
 Qed.
 
@@ -228,14 +240,14 @@ Definition run_basic_block (bb : basic_block) (s : state) : state :=
 (* TODO: Not sure why this is necessary, but it won't go through
  * if I try to inline node_ty_eqb_dec *)
 Definition node_ty_eqb (a : node_ty) (b : node_ty) : bool :=
-  if node_ty_eqb_dec a b
+  if node_ty_eq_dec a b
   then true
   else false.
 
 (* TODO: Not sure why this is necessary, but it won't go through
  * if I try to inline edge_class_eqb_dec *)
 Definition edge_class_eqb (a : edge_class) (b : edge_class) : bool :=
-  if edge_class_eqb_dec a b
+  if edge_class_eq_dec a b
   then true
   else false.
 
@@ -260,7 +272,10 @@ Definition get_function_from_name (p : program_ty) (name : string) : option func
   find (fun x => eqb (snd x) name) p.(funs).
 
 Definition function_lookup (p : program_ty) (s : state) (i : int64) : option function_ty :=
-  get_function_from_name p (s.(function_table) i).
+match (s.(function_table) i) with
+| Some name => get_function_from_name p name
+| None => get_function_from_name p "trap"
+end.
 
 (* TODO: Make sure we are handling errors correctly *)
 Fixpoint run_program (p : program_ty) (cfg : cfg_ty) (n : node_ty) (s : state) (fuel : nat) : state :=

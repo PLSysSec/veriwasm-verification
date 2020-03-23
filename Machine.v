@@ -2,7 +2,7 @@
 Require Import Coq.Lists.List.
 Require Import Coq.Program.Basics.
 Require Import Coq.Strings.String.
-Require Import Bits.
+Require Import VerifiedVerifier.Bits.
 (*Require Import Coq.Vectors.Vector.*)
 (*Require Import SFI.Machine.Bits.*)
 (*Require Import bbv.Word.*)
@@ -32,9 +32,16 @@ Inductive register : Set :=
 | r15.
 
 Inductive value : Set :=
-| A_Reg : register -> value
-| A_Const : int64 -> value
-| A_MultPlus : int64 -> value -> value -> value.
+| Const : int64 -> value.
+
+Inductive uni_opcode : Set :=
+| Not : uni_opcode.
+
+Inductive bin_opcode : Set := 
+| Add : bin_opcode
+| Sub : bin_opcode
+| Mult : bin_opcode
+| Div : bin_opcode.
 
 Fixpoint update {A} (l : list A) (i : nat) (v : A) : list A :=
 match l, i with
@@ -79,6 +86,9 @@ Inductive instr_class :=
 | Indirect_Call : register -> instr_class
 | Direct_Call : string -> instr_class
 | Branch : conditional -> instr_class
+| UniOp : uni_opcode -> register -> instr_class
+| BinOp : bin_opcode -> register -> register -> instr_class
+| DivOp : register -> instr_class
 | Ret : instr_class.
 
 Definition basic_block := list instr_class.
@@ -160,13 +170,3 @@ Inductive flag : Set :=
 | zf
 | pf
 | cf.
-
-Definition fmap (A B:Type) := 
-  A -> B.
-
-Definition map_set {A} (eq_dec:forall (x y:A),{x=y}+{x<>y}) {B} (f:fmap A B) (x:A) (v:B) : fmap A B :=
-  fun y => if eq_dec x y then v else f y.
-
-Definition map_get {A} {B} (f:fmap A B) (x:A) : B := 
-  f x.
-

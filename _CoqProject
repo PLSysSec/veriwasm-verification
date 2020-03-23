@@ -3,6 +3,10 @@
 Machine.v
 Coqlib.v
 Bits.v
+Lattice.v
+BinaryLattice.v
+BoundedLattice.v
+Maps.v
 Semantics.v
 AbstractAnalysis.v
 Safety.v

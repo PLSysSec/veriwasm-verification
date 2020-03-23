@@ -222,6 +222,13 @@ Proof.
   try (rewrite e0 || rewrite <- e0);
   try congruence;
   try rewrite <- Eqdep_dec.eq_rect_eq_dec; eauto; simpl; intuition;
+  try rewrite <- Eqdep_dec.eq_rect_eq_dec; eauto; simpl; intuition;
+
+  repeat destruct (Term_eq_dec _ _); subst;
+  try (rewrite e || rewrite <- e);
+  try (rewrite e0 || rewrite <- e0);
+  try congruence;
+  try rewrite <- Eqdep_dec.eq_rect_eq_dec; eauto; simpl; intuition;
   try rewrite <- Eqdep_dec.eq_rect_eq_dec; eauto; simpl; intuition.
 Qed.
 

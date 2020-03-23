@@ -1,4 +1,4 @@
-Require Import Lattice.
+Require Import VerifiedVerifier.Lattice.
 
 Inductive BoundedSet : Set :=
 | top

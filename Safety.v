@@ -1,13 +1,12 @@
-Require Import Semantics.
-Require Import Machine.
-Require Import Bits.
+Require Import VerifiedVerifier.Machine.
+Require Import VerifiedVerifier.Bits.
+Require Import VerifiedVerifier.Maps.
 Require Import Coq.Init.Nat.
 Require Import Coq.Lists.List.
 Require Import Coq.Lists.ListSet.
-Require Import AbstractAnalysis.
-
-Definition member (s : set int64) (i : int64) :=
-  set_mem int64_eq_dec i s.
+Require Import VerifiedVerifier.BinaryLattice.
+Require Import VerifiedVerifier.AbstractAnalysis.
+Require Import VerifiedVerifier.Semantics.
 
 Definition is_mem_bounded (s : state) (r_src : register) (r_base : register) : bool :=
   andb (Word.eq (get_register s r_base) s.(heap_base)) (Word.lt (get_register s r_src) fourGB).
@@ -77,6 +76,12 @@ Inductive safe_instr_class : instr_class -> state -> Prop :=
   safe_instr_class (Direct_Call name) st
 | I_Branch_Safe: forall st c,
   safe_instr_class (Branch c) st
+| I_UniOp_Safe: forall st op r_dst,
+  safe_instr_class (UniOp op r_dst) st
+| I_BinOp_Safe: forall st op r_dst r_src,
+  safe_instr_class (BinOp op r_dst r_src) st
+| I_DivOp_Safe: forall st r_dst,
+  safe_instr_class (DivOp r_dst) st
 | I_Ret_Safe: forall st,
   length st.(stack) = 0 ->
   safe_instr_class (Ret) st.
@@ -98,10 +103,20 @@ Inductive safe_basic_block : basic_block -> state -> Prop :=
   safe_basic_block bb st' ->
   safe_basic_block (i :: bb) st.
 
+Definition is_heap_base_int64 (s : state) (i : int64) : BinarySet :=
+if (Word.eq i s.(heap_base)) then bottom else top.
+
+Definition is_heap_bounded_int64 (s : state) (i : int64) : BinarySet :=
+if (Word.lt i fourGB) then bottom else top.
+
+Definition is_cf_bounded_int64 (s : state) (i : int64) : BinarySet :=
+if (member s.(function_table) i) then bottom else top.
+
+
 Definition abstractify_int64 (s : state) (i : int64) : info :=
-if (Word.eq i s.(heap_base)) then mem_base else
-if (member s.(function_table) i) then cf_bounded else
-if (Word.lt i fourGB) then mem_bounded else unbounded.
+{| abs_heap_base := is_heap_base_int64 s i;
+   abs_heap_bound := is_heap_bounded_int64 s i;
+   abs_cf_bound := is_cf_bounded_int64 s i; |}.
 
 Definition abstractify_list (s : state) (l : list int64) : list info :=
   map (abstractify_int64 s) l.
@@ -115,7 +130,7 @@ Definition abstractify (s : state) : abs_state :=
 
 Inductive info_less_eq_safe : info -> info -> Prop :=
 | Unbounded_Less_Safe : forall i,
-  info_less_eq_safe unbounded i
+  info_less_eq_safe empty_info i
 | Same_Info_Less_Safe : forall i,
   info_less_eq_safe i i.
 
@@ -126,38 +141,36 @@ Definition abs_state_less_eq_safe (st : abs_state) (st' : abs_state) : Prop :=
   forall r st st', info_less_eq_safe (st.(abs_regs) r) (st'.(abs_regs) r).
 
 Lemma safe_mem_base : forall s i,
-  abstractify_int64 s i = mem_base ->
+  (abstractify_int64 s i).(abs_heap_base) = bottom ->
   Word.eq i s.(heap_base) = true.
 Proof.
-  intros s i H. unfold abstractify_int64 in H. remember (Word.eq i (heap_base s)) as goal. destruct goal.
+  intros s i H. unfold abstractify_int64 in H. inversion H. unfold is_heap_base_int64 in H1. 
+  remember (Word.eq i (heap_base s)) as goal. destruct goal.
   + auto.
-  + remember (member (function_table s) i) as not_goal. destruct not_goal.
-    * inversion H.
-    * remember (Word.lt i fourGB) as not_goal. destruct not_goal; inversion H.
+  + inversion H1.
 Qed.
 
 Lemma safe_mem_bound : forall s i,
-  abstractify_int64 s i = mem_bounded ->
+  (abstractify_int64 s i).(abs_heap_bound) = bottom ->
   Word.lt i fourGB = true.
 Proof.
-  intros s i H. unfold abstractify_int64 in H. remember (Word.lt i fourGB) as goal. destruct goal.
+  intros s i H. unfold abstractify_int64 in H. inversion H. unfold is_heap_bounded_int64 in H1. 
+  remember (Word.lt i fourGB) as goal. destruct goal.
   + auto.
-  + remember (Word.eq i (heap_base s)) as not_goal. destruct not_goal.
-    * inversion H.
-    * remember (member (function_table s) i) as not_goal. destruct not_goal; inversion H.
+  + inversion H1.
 Qed.
 
 Lemma safe_function_index : forall s i,
-  abstractify_int64 s i = cf_bounded ->
+  (abstractify_int64 s i).(abs_cf_bound) = bottom ->
   member s.(function_table) i = true.
 Proof.
-  intros s i H. unfold abstractify_int64 in H. remember (member (function_table s) i) as goal. destruct goal.
+  intros s i H. unfold abstractify_int64 in H. inversion H. unfold is_cf_bounded_int64 in H1. 
+  remember (member (function_table s) i) as goal. destruct goal.
   + auto.
-  + remember (Word.eq i (heap_base s)) as not_goal. destruct not_goal.
-    * inversion H.
-    * remember (Word.lt i fourGB) as not_goal. destruct not_goal; inversion H.
+  + inversion H1.
 Qed.
 
+(*
 Lemma safe_function_return : forall s i,
   abstractify_int64 s i = cf_bounded ->
   member s.(function_table) i = true.
@@ -168,6 +181,7 @@ Proof.
     * inversion H.
     * remember (Word.lt i fourGB) as not_goal. destruct not_goal; inversion H.
 Qed.
+*)
 
 Theorem instr_class_vstep_safe : forall i abs_st abs_st' st,
   abs_st = abstractify st ->
@@ -198,6 +212,10 @@ Proof.
   + inversion H. unfold abstractify_registers, abstractify_int64 in H2. apply safe_function_index; auto.
 - apply I_Direct_Call_Safe.
   inversion H. unfold abstractify_registers, abstractify_int64 in H1. apply safe_mem_base; auto.
+- apply I_Branch_Safe.
+- apply I_UniOp_Safe.
+- apply I_BinOp_Safe.
+- apply I_DivOp_Safe.
 - apply I_Ret_Safe.
   inversion H. unfold abstractify_list in H1. apply map_eq_nil in H1. rewrite H1. auto.
 Qed.
@@ -210,14 +228,14 @@ Theorem safe_instr :
 Proof.
   intros i abs_st abst_st' st Hst Hstep. unfold is_instr_class_safe, is_mem_bounded. induction Hstep; subst; auto.
 - apply andb_true_intro. split.
-  + unfold get_register_info, map_get, abstractify, abstractify_registers in H.
+  + unfold get_register_info, abstractify, abstractify_registers in H.
     simpl in H. apply safe_mem_base. auto.
-  + unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
+  + unfold get_register_info, abstractify, abstractify_registers in H0.
     simpl in H0. apply safe_mem_bound in H0. auto.
 - apply andb_true_intro. split.
-  + unfold get_register_info, map_get, abstractify, abstractify_registers in H.
+  + unfold get_register_info, abstractify, abstractify_registers in H.
     apply safe_mem_base. auto.
-  + unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
+  + unfold get_register_info, abstractify, abstractify_registers in H0.
     apply safe_mem_bound in H0. auto.
 - unfold is_stack_contract_safe. apply PeanoNat.Nat.leb_le. unfold abs_stack, abstractify, abstractify_list in H.
   rewrite map_length in H. auto.
@@ -226,11 +244,11 @@ Proof.
 - unfold is_stack_index_safe. simpl in H. unfold abstractify_list in H.
   rewrite map_length in H. apply PeanoNat.Nat.ltb_lt. auto.
 - apply andb_true_intro. split.
-  + unfold get_register_info, map_get, abstractify, abstractify_registers in H0.
+  + unfold get_register_info, abstractify, abstractify_registers in H0.
     apply safe_mem_base in H0. auto.
-  +unfold get_register_info, map_get, abstractify, abstractify_registers in H.
+  +unfold get_register_info, abstractify, abstractify_registers in H.
     apply safe_function_index. auto.
-- unfold get_register_info, map_get, abstractify, abstractify_registers in H. simpl in H.
+- unfold get_register_info, abstractify, abstractify_registers in H. simpl in H.
   apply safe_mem_base. auto.
 - unfold is_return_safe. simpl in H. unfold abstractify_list, empty in H.
   apply map_eq_nil in H. apply PeanoNat.Nat.eqb_eq. rewrite H. auto.
@@ -257,12 +275,12 @@ Theorem instr_class_istep_abstractify_vstep: forall i st st' abs_st',
   abs_st' = abstractify st'.
 Proof.
   intros i st st' abs_st' Hv Hi. induction i; inversion Hv; inversion Hi; subst.
-- unfold get_register_info, set_register_info in *. unfold map_get, map_set in *.
-  unfold set_register, abstractify, abstractify_registers. simpl. unfold map_set. simpl. unfold abstractify_list.
+- unfold get_register_info, set_register_info in *. unfold t_update in *.
+  unfold set_register, abstractify, abstractify_registers. simpl. unfold t_update. simpl. unfold abstractify_list.
   simpl. unfold abstractify_int64. simpl. admit.
 - admit.
 - unfold abstractify. simpl. unfold set_register_info. simpl.
-unfold set_register, set_register_info, abstractify. simpl. unfold abstractify_registers. unfold map_set. simpl.
+unfold set_register, set_register_info, abstractify. simpl. unfold abstractify_registers. unfold t_update. simpl.
   unfold abstractify_int64. simpl.
 Admitted.
 

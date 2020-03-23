@@ -26,7 +26,7 @@
         
 
 
-Require Import Coqlib.
+Require Import VerifiedVerifier.Coqlib.
 Require Import Coq.ZArith.Znumtheory.
 Require Import Coq.Classes.Morphisms.
 Local Open Scope Z_scope.
