@@ -7,6 +7,7 @@ Require Import Coq.Lists.ListSet.
 Require Import VerifiedVerifier.BinaryLattice.
 Require Import VerifiedVerifier.AbstractAnalysis.
 Require Import VerifiedVerifier.Semantics.
+Require Import Lia.
 
 Definition is_mem_bounded (s : state) (r_src : register) (r_base : register) : bool :=
   andb (Word.eq (get_register s r_base) s.(heap_base)) (Word.lt (get_register s r_src) fourGB).
@@ -127,12 +128,22 @@ Definition abstractify_registers (s : state) (f : registers_ty) : abs_registers_
 Definition abstractify (s : state) : abs_state :=
 {| abs_regs := abstractify_registers s s.(regs);
    abs_stack := abstractify_list s s.(stack) |}.
+(*Notation " α st " := ( abstractify st ) (at level 200). *)
 
 Inductive leq_info : info -> info -> Prop :=
-| leq_info_bot : forall i,
-  leq_info empty_info i
 | leq_info_refl : forall i,
-  leq_info i i.
+  leq_info i i
+| leq_info_rule : forall x y,
+  BinaryRel (abs_heap_base x) (abs_heap_base y) ->
+  BinaryRel (abs_heap_bound x) (abs_heap_bound y) ->
+  BinaryRel (abs_cf_bound x) (abs_cf_bound y) ->
+  leq_info x y.
+
+Lemma leq_info_empty : forall i,
+  leq_info i empty_info.
+Proof.
+  intros [[] [] []]; apply leq_info_rule; apply top_rel.
+Qed. 
 
 (* TODO: This doesn't consider flags or memory *)
 Reserved Notation " st ≤ st' "
@@ -141,8 +152,63 @@ Inductive leq_state : abs_state -> abs_state -> Prop :=
 | leq_state_rule: forall st st',
   (forall reg, leq_info (get_register_info st reg) (get_register_info st' reg)) ->
   (forall i, leq_info (get_stack_info st i) (get_stack_info st' i)) -> 
+  length (abs_stack st) = length (abs_stack st') ->
   st ≤ st'
 where " st ≤ st' " := (leq_state st st').
+
+Lemma leq_state_ge_stack_length: 
+forall st1 st2,
+st1 ≤ st2 ->
+length (abs_stack st1) >= length (abs_stack st2).
+Proof.
+intros st1 st2 Hleq. inversion Hleq. subst. lia.
+Qed. (* this is not possible to prove because we can always get an empty state so we need to add this constraint to the definition*) 
+
+
+Lemma leq_state_vstep :
+forall i st1 st2 st2',
+st1 ≤ st2 ->
+i / st2 v--> st2' ->
+exists st1', i / st1 v--> st1'.
+Proof.
+intros i st1 st2 st2' Hleq Hstep. inversion Hstep; subst.
+- eexists. eapply V_Heap_Read.
+  + inversion Hleq. subst. specialize H1 with r_base.
+  inversion H1. subst. rewrite H6. auto. subst. rewrite H in H4. inversion H4. auto.
+  + inversion Hleq. subst. specialize H1 with r_src.
+  inversion H1. subst. rewrite H6. auto. subst. rewrite H0 in H5. inversion H5. auto.
+- eexists. eapply V_Heap_Write.
+  + inversion Hleq. subst. specialize H1 with r_base.
+  inversion H1. subst. rewrite H6. auto. subst. rewrite H in H4. inversion H4. auto.
+  + inversion Hleq. subst. specialize H1 with r_dst.
+  inversion H1. subst. rewrite H6. auto. subst. rewrite H0 in H5. inversion H5. auto.
+- eexists. eapply V_Heap_Check.
+- eexists. eapply V_Call_Check.
+- eexists. eapply V_Reg_Move.
+- eexists. eapply V_Reg_Write.
+- eexists. eapply V_Stack_Expand.
+- eexists. eapply V_Stack_Contract.
+  inversion Hleq. subst. lia.
+- eexists. eapply V_Stack_Read.
+  inversion Hleq. subst. lia.
+- eexists. eapply V_Stack_Write.
+  inversion Hleq. subst. lia.
+- inversion Hleq. subst. eexists. eapply V_Indirect_Call.
+  + specialize H1 with reg. inversion H1. subst. rewrite <- H6 in H. auto.
+    rewrite H in H6. inversion H6. auto.
+  + specialize H1 with rdi. inversion H1. subst. rewrite <- H6 in H0. auto.
+    rewrite H0 in H4. inversion H4. auto.
+- inversion Hleq. subst. eexists. eapply V_Direct_Call.
+  + specialize H0 with rdi. inversion H0. subst. rewrite <- H5 in H. auto.
+    rewrite H in H3. inversion H3. auto.
+- eexists. eapply V_Branch.
+- eexists. eapply V_UniOp.
+- eexists. eapply V_BinOp.
+- eexists. eapply V_DivOp.
+- eexists. eapply V_Ret.
+  inversion Hleq. subst. Search (length). inversion H. rewrite H4 in H2. simpl in H2.
+  destruct (abs_stack st1). unfold empty. auto. inversion H2.
+Qed.
 
 Lemma safe_mem_base : forall s i,
   (abstractify_int64 s i).(abs_heap_base) = bottom ->
@@ -284,43 +350,52 @@ Qed.
 Theorem instr_class_istep_abstractify_vstep: forall i st st' abs_st',
   i / abstractify st v--> abs_st' ->
   i / st i--> st' ->
-  abs_st' ≤ abstractify st'.
+  abstractify st' ≤ abs_st'.
 Proof.
   intros i st st' abs_st' Hv Hi. inversion Hv; subst. inversion Hi; subst.
--inversion H; inversion H0. unfold is_heap_base_int64, is_heap_bounded_int64 in *.
+- inversion H; inversion H0. unfold is_heap_base_int64, is_heap_bounded_int64 in *.
   apply eq_thn_cond_true in H2. apply eq_thn_cond_true in H3. apply leq_state_rule.
   + intros reg. destruct (register_eq_dec reg r_dst).
-    * subst. simpl. rewrite register_get_after_set_eq. apply leq_info_bot.
+    * subst. simpl. rewrite register_get_after_set_eq. apply leq_info_empty.
     * simpl. rewrite register_get_after_set_neq; auto. remember (read_heap st (Word.add (get_register st r_src) (get_register st r_base))) as v_dst.
       simpl. unfold abstractify_registers. rewrite register_get_after_set_neq; auto.
-
-  unfold abstractify_int64. unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64.
-  rewrite eq_thn_cond_true.
- subst.
- rewrite (register_get_after_set_neq (regs st) r_dst v_dst reg). simpl.
-      rewrite register_get_after_set_neq.
- subst.
-
-rewrite register_get_after_set_neq.
-  destruct reg, r_dst. try apply leq_info_bot. simpl. rewrite register_get_after_set_neq.
-    unfold abstractify_registers. unfold abstractify_int64. simpl. 
-   rewrite register_get_after_set_neq. auto. simpl.
-
-
-
- inversion H2. subst.
-Search (if _ then _ else _). 
- induction i. 
-- inversion Hv; subst. inversion Hi; subst. inversion H4. unfold is_heap_base_int64 in H0. inversion H0. 
-
-; inversion Hv; inversion Hi; subst.
-- unfold get_register_info, set_register_info in *. unfold t_update in *.
-  unfold set_register, abstractify, abstractify_registers. simpl. unfold t_update. simpl. unfold abstractify_list.
-  simpl. unfold abstractify_int64. simpl. admit.
+      unfold set_register. unfold abstractify_int64. unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64.
+      simpl. apply leq_info_refl.
+  + intros i. apply leq_info_refl.
+  + auto. 
+  + intros Hfalse. inversion Hfalse.
+  + intros Hfalse. inversion Hfalse.
+- inversion Hi. subst. inversion Hv. subst. unfold abstractify. simpl.
+  unfold abstractify_registers, abstractify_list. unfold abstractify_int64. simpl.
+  unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64. simpl. apply leq_state_rule.
+  simpl. intros reg. apply leq_info_refl. intros i. apply leq_info_refl. auto.
+- inversion Hi. subst. inversion Hv. subst. apply leq_state_rule.
+  + intros reg. destruct (register_eq_dec reg r_src).
+    * subst. simpl. rewrite register_get_after_set_eq. unfold abs_heap_bounded_info.
+      unfold abstractify_registers. unfold abstractify_int64. unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64.
+      simpl. rewrite register_get_after_set_eq. apply leq_info_rule; try apply top_rel.
+      simpl. Search (Word.lt). admit. (*this is clearly true. i gotta dig around for a useful lemma *) 
+    * simpl. rewrite register_get_after_set_neq. unfold abs_heap_bounded_info.
+      unfold abstractify_registers. unfold abstractify_int64. unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64.
+      simpl. rewrite register_get_after_set_neq. apply leq_info_refl. apply n. apply n.
+  + intros i. apply leq_info_refl.
+  + auto. 
+- inversion Hi. subst. admit.
 - admit.
-- unfold abstractify. simpl. unfold set_register_info. simpl.
-unfold set_register, set_register_info, abstractify. simpl. unfold abstractify_registers. unfold t_update. simpl.
-  unfold abstractify_int64. simpl.
+- admit.
+- admit.
+- admit.
+- admit.
+- admit.
+- admit.
+- admit.
+- admit.
+- admit.
+- admit.
+- inversion Hi. subst. apply leq_state_rule.
+  * intros reg. admit.
+  * admit.
+- inversion Hi. apply leq_state_rule. intros reg. apply leq_info_refl. intro i. apply leq_info_refl.
 Admitted.
 
 Theorem basic_block_vstep_safe :
