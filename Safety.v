@@ -127,7 +127,8 @@ Definition abstractify_registers (s : state) (f : registers_ty) : abs_registers_
 
 Definition abstractify (s : state) : abs_state :=
 {| abs_regs := abstractify_registers s s.(regs);
-   abs_stack := abstractify_list s s.(stack) |}.
+   abs_stack := abstractify_list s s.(stack);
+   abs_error := s.(error) |}.
 (*Notation " α st " := ( abstractify st ) (at level 200). *)
 
 Inductive leq_info : info -> info -> Prop :=
