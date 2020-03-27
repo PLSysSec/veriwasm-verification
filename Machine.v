@@ -87,7 +87,6 @@ Inductive instr_class :=
 | Indirect_Call : register -> instr_class
 | Direct_Call : string -> instr_class
 | Branch : conditional -> instr_class
-
 | UniOp : uni_opcode -> register -> instr_class
 | BinOp : bin_opcode -> register -> register -> instr_class
 | DivOp : register -> instr_class
@@ -101,10 +100,11 @@ Inductive edge_class : Set :=
 | Non_Branch.
 
 Definition node_ty := prod basic_block nat.
+Definition edge_ty := (prod (prod node_ty node_ty) edge_class).
 
 Record cfg_ty := {
   nodes : list node_ty;
-  edges : list ((node_ty * node_ty) * edge_class);
+  edges : list edge_ty;
   start_node : node_ty
 }.
 
