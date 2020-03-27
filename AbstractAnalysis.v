@@ -107,7 +107,63 @@ Definition is_abs_error (s : abs_state) : bool :=
 Definition set_error_state (s : abs_state) : abs_state :=
 {| abs_regs := s.(abs_regs);
    abs_stack := s.(abs_stack);
-   error := true; |}.
+   abs_error := true; |}.
+
+Definition meet_info (i1 : info) (i2 : info) : info :=
+{| abs_heap_base := meet_BinarySet i1.(abs_heap_base) i2.(abs_heap_base);
+   abs_heap_bound := meet_BinarySet i1.(abs_heap_bound) i2.(abs_heap_bound);
+   abs_cf_bound := meet_BinarySet i1.(abs_cf_bound) i2.(abs_cf_bound); |}.
+
+(*Definition abs_registers_ty := total_map register info.*)
+Definition meet_abs_regs (r1 : abs_registers_ty) (r2 : abs_registers_ty) : abs_registers_ty :=
+  fun r => meet_info (r1 r) (r2 r).
+
+(* NOTE: We don't set and error state here if stacks are different lengths
+ * because that is done in meet_abs_state *)
+Fixpoint meet_abs_stack (s1 : abs_stack_ty) (s2 : abs_stack_ty) : abs_stack_ty :=
+  match s1 with
+  | i1 :: s1' =>
+    match s2 with
+    | i2 :: s2' => meet_info i1 i2 :: meet_abs_stack s1' s2'
+    | _ => nil
+    end
+  | _ => nil
+  end.
+
+Definition meet_abs_state (s1 : abs_state) (s2 : abs_state) : abs_state :=
+{| abs_regs := meet_abs_regs s1.(abs_regs) s2.(abs_regs);
+   abs_stack := meet_abs_stack s1.(abs_stack) s2.(abs_stack);
+   abs_error := orb (orb s1.(abs_error) s2.(abs_error))
+                    (negb (eqb (length s1.(abs_stack)) (length s2.(abs_stack))));
+|}.
+
+(* TODO: need to add a bottom state; currently abs_bottom_state has a stack
+ * of length 0, which means that meet_abs_state will return an error state
+ * for any meet with a non zero length stack. *)
+Fixpoint meet_abs_states (ss : list abs_state) : abs_state :=
+  match ss with
+  | s :: ss' => meet_abs_state s (meet_abs_states ss')
+  | _ => abs_bottom_state
+  end.
+
+Fixpoint get_parent_nodes (n : node_ty) (es : list edge_ty) : list node_ty :=
+  match es with
+  | e :: es' =>if node_ty_eqb n (snd (fst e))
+    then fst (fst e) :: get_parent_nodes n es'
+    else get_parent_nodes n es'
+  | _ => nil
+  end.
+
+Fixpoint get_child_nodes (n : node_ty) (es : list edge_ty) : list node_ty :=
+  match es with
+  | e :: es' =>if node_ty_eqb n (fst (fst e))
+    then snd (fst e) :: get_child_nodes n es'
+    else get_child_nodes n es'
+  | _ => nil
+  end.
+
+Definition get_parent_states (n : node_ty) (m : total_map node_ty abs_state) (cfg : cfg_ty) : list abs_state :=
+  map m (get_parent_nodes n cfg.(edges)).
 
 Definition empty {A} (l : list A) :=
   l = nil.
@@ -217,10 +273,32 @@ Definition flow_function (st : abs_state) (i : instr_class) : abs_state :=
     else set_error_state st
   end.
 
-Definition worklist (cfg : cfg_ty) (map : total_map node_ty BinarySet) (fuel : nat) : total_map node_ty BinarySet :=
+Fixpoint bb_flow_function (st : abs_state) (bb : basic_block) : abs_state :=
+  match bb with
+  | i :: bb' => bb_flow_function (flow_function st i) bb'
+  | _ => st
+  end.
+
+(* TODO: This shouldn't need fuel because we can prove it converges *)
+(* TODO: Might wnat to return an error state if we run out of fuel *)
+Fixpoint worklist (cfg : cfg_ty) (queue : list node_ty) (m : total_map node_ty abs_state)
+                    (fuel : nat) : total_map node_ty abs_state :=
   match fuel with
-  | S fuel' => t_empty bottom
-  | _ => t_empty bottom
+  | S fuel' =>
+    match queue with
+    | n :: queue' =>
+      let in_state := meet_abs_states (get_parent_states n m cfg) in
+      let prev_out_state := m n in
+      let new_out_state := bb_flow_function in_state (fst n) in
+      if abs_state_eqb prev_out_state new_out_state
+        then worklist cfg queue' m fuel'
+        else
+          let new_queue := queue' ++ get_child_nodes n cfg.(edges) in
+          let new_map := t_update node_ty_eq_dec m n new_out_state in
+          worklist cfg new_queue new_map fuel'
+    | _ => m
+    end
+  | _ => t_empty abs_empty_state
   end.
 
 Theorem instr_class_vstep_deterministic: forall init_st st st' i,
