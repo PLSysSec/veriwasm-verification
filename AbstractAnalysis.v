@@ -99,10 +99,10 @@ nth index s.(abs_stack) empty_info.
 Definition set_stack_info (s : abs_state) (index : nat) (i : info) : abs_state :=
 {| abs_regs := s.(abs_regs);
    abs_stack := Machine.update s.(abs_stack) index i;
-   error := s.(error); |}.
+   abs_error := s.(abs_error); |}.
 
 Definition is_abs_error (s : abs_state) : bool :=
-  s.(error).
+  s.(abs_error).
 
 Definition set_error_state (s : abs_state) : abs_state :=
 {| abs_regs := s.(abs_regs);
