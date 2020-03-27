@@ -3,6 +3,7 @@ Require Import VerifiedVerifier.BoundedLattice.
 Require Import VerifiedVerifier.BinaryLattice.
 Require Import VerifiedVerifier.Maps.
 Require Import Coq.Lists.List.
+Require Import Coq.Init.Nat.
 
 Record info := {
   abs_heap_base : BinarySet;
@@ -30,57 +31,15 @@ Definition abs_cf_bounded_info :=
      abs_heap_bound := top;
      abs_cf_bound := bottom; |}.
 
-(*
-Record absStateLattice := {
-  abs_heap_base         : BoundedSet;
-  heap              : BoundedSet;
-  fn_table          : BoundedSet;
-}.
-
-Definition unbounded_lattice :=
-  {| abs_heap_base := top;
-     heap := top;
-     fn_table := top; |}.
-
-Definition abs_heap_base_bounded_lattice :=
-  {| abs_heap_base := bounded;
-     heap := top;
-     fn_table := top; |}.
-
-Definition abs_heap_bounded_lattice :=
-  {| abs_heap_base := top;
-     heap := bounded;
-     fn_table := top; |}.
-
-Definition fn_table_bounded_lattice :=
-  {| abs_heap_base := top;
-     heap := top;
-     fn_table := bounded; |}.
-
-Definition absStateLattice_join (a : absStateLattice) (b : absStateLattice) : absStateLattice :=
-  {| abs_heap_base := join_BoundedSet a.(abs_heap_base) b.(abs_heap_base);
-     heap := join_BoundedSet a.(heap) b.(heap);
-     fn_table := join_BoundedSet a.(fn_table) b.(fn_table) |}.
-
-Definition absStateLattice_meet (a : absStateLattice) (b : absStateLattice) : absStateLattice :=
-  {| abs_heap_base := meet_BoundedSet a.(abs_heap_base) b.(abs_heap_base);
-     heap := meet_BoundedSet a.(heap) b.(heap);
-     fn_table := meet_BoundedSet a.(fn_table) b.(fn_table) |}.
-*)
-
 Definition abs_registers_ty := total_map register info.
 
 Definition abs_stack_ty := list info.
-
-(* Definition heap_ty := list lattice.*)
-
-(* Definition flags_ty := fmap flag abs_state. *)
 
 Record abs_state := {
   abs_regs : abs_registers_ty;
 (*  flags : flags_ty; *)
   abs_stack : abs_stack_ty;
-(*  heap : heap_ty; *)
+  error : bool;
 }.
 
 Definition abs_empty_state :=
@@ -88,50 +47,13 @@ Definition abs_empty_state :=
                           then abs_heap_base_info
                           else empty_info;
    abs_stack := nil;
-(*   heap := nil *)|}.
-
-(*
-Inductive value : Set :=
-| A_Reg : register -> value
-| A_Const : word64 -> value
-| A_MultPlus : word64 -> value -> value -> value.
-*)
-
-(*
-Fixpoint value_to_word64 (s : machine) (v :value) : word64 :=
-match v with
-| A_Reg r => (abs_regs s) r
-| A_Const c => c
-| A_MultPlus m v1 v2 => wmult m (wplus (value_to_word64 s v1) (value_to_word64 s v2))
-end.
-*)
-
-(*
-Definition read_register (s : machine) (r : register) : word64 :=
-  get register word64 s.(abs_regs) r.
-*)
-
-(*
-Definition write_register (s : machine) (r : register) (v : word64) : machine :=
-{| abs_regs := set register register_eq_dec word64 s.(abs_regs) r v;
-   flags := s.(flags);
-   abs_stack := s.(stack);
-   heap := s.(heap) |}.
-*)
-
-(*
-Definition set_flags (s : machine) (f : flags_ty) : machine :=
-{| abs_regs := s.(abs_regs);
-   flags := f;
-   abs_stack := s.(stack);
-   heap := s.(heap) |}. 
-*)
+   error := false; |}.
 
 Definition expand_abs_stack (s : abs_state) (i : nat) : abs_state :=
 {| abs_regs := s.(abs_regs);
 (*   flags := s.(flags); *)
    abs_stack := s.(abs_stack) ++ (repeat empty_info i);
-(*   heap := s.(heap) *)|}.
+   error := s.(error); |}.
 
 Fixpoint contract_abs_stack (s : abs_state) (i : nat) : abs_state :=
 match i with
@@ -140,41 +62,8 @@ match i with
 contract_abs_stack {| abs_regs := s.(abs_regs);
 (*   flags := s.(flags); *)
    abs_stack := removelast s.(abs_stack);
-(*   heap := s.(heap) *) |} n
+   error := s.(error); |} n
 end.
-
-(*
-Definition read_stack_word (s : machine) (i : nat) : word8 :=
-match nth_error s.(stack) i with
-| Some v => v
-| None => wzero8 (* we might want to do something else here *)
-end.
-*)
-
-(*
-Program Fixpoint read_abs_stack (s : machine) (i : nat) (sz : nat) : word (8 * sz):=
-match sz with
-| 0 => WO
-| S sz' => combine (read_stack_word s i) (read_abs_stack s (i+1) (sz'))
-end.
-Next Obligation. rewrite <- plus_n_O. repeat (rewrite <- plus_n_Sm). reflexivity.
-Qed.
-*)
-
-(*
-Definition read_heap_word (s : machine) (key :  word64) : word8 :=
- s.(heap) key.
-*)
-
-(*
-Program Fixpoint read_heap (s : machine) (key : word64) (sz : nat) : word (8 * sz):=
-match sz with
-| 0 => WO
-| S sz' => combine (read_heap_word s key) (read_heap s (wplus key (wone 64)) (sz'))
-end.
-Next Obligation. rewrite <- plus_n_O. repeat (rewrite <- plus_n_Sm). reflexivity.
-Qed.
-*)
 
 Definition get_register_info (s : abs_state) (r : register) : info :=
   s.(abs_regs) r.
@@ -182,8 +71,9 @@ Definition get_register_info (s : abs_state) (r : register) : info :=
 Definition set_register_info (s : abs_state) (r : register) (i : info) : abs_state :=
 {| abs_regs := t_update register_eq_dec s.(abs_regs) r i;
    abs_stack := s.(abs_stack);
-(*   heap := s.(heap) *) |}.
+   error := s.(error); |}.
 
+(* TODO: make stack indexing 64-bit *)
 Definition get_stack_info (s : abs_state) (index : nat) : info :=
 nth index s.(abs_stack) empty_info.
 
@@ -191,12 +81,22 @@ nth index s.(abs_stack) empty_info.
 Definition set_stack_info (s : abs_state) (index : nat) (i : info) : abs_state :=
 {| abs_regs := s.(abs_regs);
    abs_stack := Machine.update s.(abs_stack) index i;
- (*  heap := s.(heap) *) |}.
+   error := s.(error); |}.
+
+Definition is_abs_error (s : abs_state) : bool :=
+  s.(error).
+
+Definition set_error_state (s : abs_state) : abs_state :=
+{| abs_regs := s.(abs_regs);
+   abs_stack := s.(abs_stack);
+   error := true; |}.
 
 Definition empty {A} (l : list A) :=
   l = nil.
 
-(* TODO: Start using the heap *)
+Definition initialize_worklist (cfg : cfg_ty) : total_map node_ty abs_state :=
+  t_empty abs_empty_state.
+
 (* TODO: Add check instructions for everything else *)
 Reserved Notation " i '/' st 'v-->' st' "
                   (at level 40, st' at level 39).
@@ -249,6 +149,61 @@ Inductive instr_class_vstep : instr_class -> abs_state -> abs_state -> Prop :=
     empty st.(abs_stack) ->
     Ret / st v-->  st
   where " i '/' st 'v-->' st'" := (instr_class_vstep i st st').
+
+(* TODO: The semantics for operations might be opcode-dependent; this should get fixed
+ * when opcodes return lists of modified registers *)
+(* TODO: This can be combined with the inductive definition for instr_class_vstep *)
+(* TODO: Can infer bounds for any literals on Reg_Write *)
+Definition flow_function (st : abs_state) (i : instr_class) : abs_state :=
+  match i with
+  | Heap_Read r_dst r_src r_base =>
+    if andb (BinarySet_eqb (get_register_info st r_base).(abs_heap_base) bottom)
+            (BinarySet_eqb (get_register_info st r_src).(abs_heap_bound) bottom)
+    then set_register_info st r_dst empty_info
+    else set_error_state st
+  | Heap_Write r_dst _ r_base =>
+    if andb (BinarySet_eqb (get_register_info st r_base).(abs_heap_base) bottom)
+            (BinarySet_eqb (get_register_info st r_dst).(abs_heap_bound) bottom)
+    then st
+    else set_error_state st
+  | Heap_Check r => set_register_info st r abs_heap_bounded_info
+  | Call_Check r => set_register_info st r abs_cf_bounded_info
+  | Reg_Move r_dst r_src => set_register_info st r_dst (get_register_info st r_src)
+  | Reg_Write r _ => set_register_info st r empty_info
+  | Stack_Expand i => expand_abs_stack st i
+  | Stack_Contract i =>
+    if leb i (length st.(abs_stack))
+    then contract_abs_stack st i
+    else set_error_state st
+  | Stack_Read r i => if ltb i (length st.(abs_stack))
+    then set_register_info st r (get_stack_info st i)
+    else set_error_state st
+  | Stack_Write i r => if ltb i (length st.(abs_stack))
+    then set_stack_info st i (get_register_info st r)
+    else set_error_state st
+  | Indirect_Call r =>
+    if andb (BinarySet_eqb (get_register_info st r).(abs_cf_bound) bottom)
+            (BinarySet_eqb (get_register_info st rdi).(abs_heap_base) bottom)
+    then st
+    else set_error_state st
+  | Direct_Call _ =>
+    if BinarySet_eqb (get_register_info st rdi).(abs_heap_base) bottom
+    then st
+    else set_error_state st
+  | Branch _ => st
+  | UniOp _ r => set_register_info st r empty_info
+  | BinOp _ r_dst r_src => set_register_info st r_dst empty_info
+  | DivOp r => set_register_info (set_register_info st rax empty_info) r empty_info
+  | Ret => if eqb (length st.(abs_stack)) 0
+    then st
+    else set_error_state st
+  end.
+
+Definition worklist (cfg : cfg_ty) (map : total_map node_ty BinarySet) (fuel : nat) : total_map node_ty BinarySet :=
+  match fuel with
+  | S fuel' => t_empty bottom
+  | _ => t_empty bottom
+  end.
 
 Theorem instr_class_vstep_deterministic: forall init_st st st' i,
   i / init_st v--> st ->
@@ -311,5 +266,3 @@ Proof.
     + unfold get_register_info in *. unfold set_register_info. simpl.
       rewrite register_get_after_set_eq; auto.
 Qed.
-
-
