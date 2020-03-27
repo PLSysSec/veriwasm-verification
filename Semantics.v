@@ -77,6 +77,9 @@ contract_stack {| regs := s.(regs);
  n
 end.
 
+(* TODO: we don't actually return 0 for default here, we should
+ * signal a trap (and exit?) *)
+(* TODO: Make stack indexing 64-bit *)
 Definition read_stack (s : state) (i : nat) : int64 :=
 nth_default Word.zero s.(stack) i.
 
@@ -128,6 +131,8 @@ Definition run_conditional (c : conditional) (s : state) : bool :=
 | Counter_Register_Zero => Word.eq (get_register s rcx) (Word.repr 0)
 end.
 
+(* TODO: Implement UniOp, BinOp, and DivOp *)
+(* TODO: Can we index the stack from registers (probably), or only constants *)
 Definition run_instr (inst : instr_class) (s : state) : state := 
   match inst with 
 | Heap_Read r_dst r_src r_base => set_register s r_dst (read_heap s (Word.add (get_register s r_src) (get_register s r_base)))
