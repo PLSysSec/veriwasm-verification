@@ -16,6 +16,11 @@ Definition empty_info :=
      abs_heap_bound := top;
      abs_cf_bound := top; |}.
 
+Definition bottom_info :=
+  {| abs_heap_base := bottom;
+     abs_heap_bound := bottom;
+     abs_cf_bound := bottom; |}.
+
 Definition abs_heap_base_info :=
   {| abs_heap_base := bottom;
      abs_heap_bound := top;
@@ -39,21 +44,34 @@ Record abs_state := {
   abs_regs : abs_registers_ty;
 (*  flags : flags_ty; *)
   abs_stack : abs_stack_ty;
-  error : bool;
+  abs_error : bool;
 }.
+
+Definition abs_state_eq_dec : forall (x y : abs_state), {x=y} + {x<>y}.
+Admitted.
+
+Definition abs_state_eqb (a : abs_state) (b : abs_state) : bool :=
+  if abs_state_eq_dec a b
+  then true
+  else false.
 
 Definition abs_empty_state :=
 {| abs_regs := fun r => if register_eq_dec r rdi
                           then abs_heap_base_info
                           else empty_info;
    abs_stack := nil;
-   error := false; |}.
+   abs_error := false; |}.
+
+Definition abs_bottom_state :=
+{| abs_regs := t_empty bottom_info;
+   abs_stack := nil;
+   abs_error := false; |}.
 
 Definition expand_abs_stack (s : abs_state) (i : nat) : abs_state :=
 {| abs_regs := s.(abs_regs);
 (*   flags := s.(flags); *)
    abs_stack := s.(abs_stack) ++ (repeat empty_info i);
-   error := s.(error); |}.
+   abs_error := s.(abs_error); |}.
 
 Fixpoint contract_abs_stack (s : abs_state) (i : nat) : abs_state :=
 match i with
@@ -62,7 +80,7 @@ match i with
 contract_abs_stack {| abs_regs := s.(abs_regs);
 (*   flags := s.(flags); *)
    abs_stack := removelast s.(abs_stack);
-   error := s.(error); |} n
+   abs_error := s.(abs_error); |} n
 end.
 
 Definition get_register_info (s : abs_state) (r : register) : info :=
@@ -71,7 +89,7 @@ Definition get_register_info (s : abs_state) (r : register) : info :=
 Definition set_register_info (s : abs_state) (r : register) (i : info) : abs_state :=
 {| abs_regs := t_update register_eq_dec s.(abs_regs) r i;
    abs_stack := s.(abs_stack);
-   error := s.(error); |}.
+   abs_error := s.(abs_error); |}.
 
 (* TODO: make stack indexing 64-bit *)
 Definition get_stack_info (s : abs_state) (index : nat) : info :=
