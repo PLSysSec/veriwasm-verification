@@ -25,7 +25,7 @@ Record state := {
   heap : heap_ty;
   heap_base : int64;
   function_table : function_table_ty;
-  error_state : bool;
+  error : bool;
 }.
 
 Fixpoint value_to_int64 (s : state) (v :value) : int64 :=
@@ -43,7 +43,7 @@ Definition set_register (s : state) (r : register) (v : int64) : state :=
    heap := s.(heap);
    heap_base := s.(heap_base);
    function_table := s.(function_table);
-   error_state := s.(error_state) |}.
+   error := s.(error) |}.
 
 Definition set_flags (s : state) (f : flags_ty) : state :=
 {| regs := s.(regs);
@@ -52,7 +52,7 @@ Definition set_flags (s : state) (f : flags_ty) : state :=
    heap := s.(heap);
    heap_base := s.(heap_base) ;
    function_table := s.(function_table);
-   error_state := s.(error_state) |}.
+   error := s.(error) |}.
 
 Definition expand_stack (s : state) (i : nat) : state :=
 {| regs := s.(regs);
@@ -61,7 +61,7 @@ Definition expand_stack (s : state) (i : nat) : state :=
    heap := s.(heap);
    heap_base := s.(heap_base) ;
    function_table := s.(function_table);
-   error_state := s.(error_state) |}.
+   error := s.(error) |}.
 
 Fixpoint contract_stack (s : state) (i : nat) : state :=
 match i with
@@ -73,7 +73,7 @@ contract_stack {| regs := s.(regs);
    heap := s.(heap);
    heap_base := s.(heap_base) ;
    function_table := s.(function_table);
-   error_state := s.(error_state) |}
+   error := s.(error) |}
  n
 end.
 
@@ -90,7 +90,7 @@ Definition write_stack (s : state) (i : nat) (val : int64) : state :=
    heap := s.(heap);
    heap_base := s.(heap_base) ;
    function_table := s.(function_table);
-   error_state := s.(error_state) |}.
+   error := s.(error) |}.
 
 Definition read_heap (s : state) (i : int64) : int64 :=
 s.(heap) i.
@@ -102,7 +102,7 @@ Definition write_heap (s : state) (i : int64) (v : int64) : state :=
 	 heap := t_update int64_eq_dec s.(heap) i v;
    heap_base := s.(heap_base);
    function_table := s.(function_table);
-   error_state := s.(error_state) |}.
+   error := s.(error) |}.
 
 Definition set_error_state (s : state) : state :=
 {| regs := s.(regs);
@@ -111,7 +111,7 @@ Definition set_error_state (s : state) : state :=
 	 heap := s.(heap);
    heap_base := s.(heap_base);
    function_table := s.(function_table);
-   error_state := true |}.
+   error := true |}.
 
 Definition fourGB : int64 := (Word.shl (Word.repr 2) (Word.repr 32)).
 
