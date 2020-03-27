@@ -4,6 +4,16 @@ Inductive BinarySet : Set :=
 | top 
 | bottom.
 
+Definition BinarySet_eq_dec : forall (x y : BinarySet), {x=y} + {x<>y}.
+Proof.
+  decide equality.
+Qed.
+
+Definition BinarySet_eqb (a : BinarySet) (b : BinarySet) : bool :=
+  if BinarySet_eq_dec a b
+  then true
+  else false.
+
 Inductive BinaryRel : BinarySet -> BinarySet -> Prop :=
 | bot_rel x : BinaryRel bottom x
 | top_rel x : BinaryRel x top.
