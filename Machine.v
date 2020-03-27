@@ -159,12 +159,27 @@ Definition node_ty_eq_dec : forall (x y : node_ty), {x=y} + {x<>y}.
   intros; decide equality; decide equality. apply instr_class_eq_dec.
 Defined.
 
+Definition edge_ty_eq_dec : forall (x y : edge_ty), {x=y} + {x<>y}.
+  intros; decide equality; decide equality; decide equality; decide equality;
+  apply instr_class_eq_dec.
+Defined.
+
 Definition cfg_ty_eq_dec : forall (x y : cfg_ty), {x=y} + {x<>y}.
   intros; decide equality; try apply node_ty_eq_dec.
   - decide equality. decide equality; try apply edge_class_eq_dec.
     decide equality; apply node_ty_eq_dec.
   - decide equality. apply node_ty_eq_dec.
 Defined.
+
+Definition node_ty_eqb (a : node_ty) (b : node_ty) : bool :=
+  if node_ty_eq_dec a b
+  then true
+  else false.
+
+Definition edge_ty_eqb (a : edge_ty) (b : edge_ty) : bool :=
+  if edge_ty_eq_dec a b
+  then true
+  else false.
 
 Inductive flag : Set :=
 | of
