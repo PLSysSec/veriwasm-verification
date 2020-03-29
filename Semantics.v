@@ -131,7 +131,7 @@ Definition run_conditional (c : conditional) (s : state) : bool :=
 | Counter_Register_Zero => Word.eq (get_register s rcx) (Word.repr 0)
 end.
 
-(* TODO: Implement UniOp, BinOp, and DivOp *)
+(* TODO: Implement Op *)
 (* TODO: Can we index the stack from registers (probably), or only constants *)
 Definition run_instr (inst : instr_class) (s : state) : state := 
   match inst with 
@@ -149,9 +149,7 @@ Definition run_instr (inst : instr_class) (s : state) : state :=
 | Indirect_Call r => s
 | Direct_Call name => s
 | Branch c => s
-| UniOp op r_dst => s
-| BinOp op r_dst r_src => s
-| DivOp r_dst => s
+| Op op rs_dst rs_src => s
 | Ret => s
 end.
 
@@ -193,15 +191,12 @@ Inductive instr_class_istep : instr_class -> state -> state -> Prop :=
     Direct_Call name / st i-->  st
 | I_Branch: forall st c,
     (Branch c) / st i--> st
-| I_UniOp: forall st op r_dst,
-    (UniOp op r_dst) / st i--> st
-| I_BinOp: forall st op r_dst r_src,
-    (BinOp op r_dst r_src) / st i--> st
-| I_DivOp : forall st r_dst,
-    (DivOp r_dst) / st i--> st
+| I_Op: forall st op rs_dst rs_src,
+    (Op op rs_dst rs_src) / st i--> st
 | I_Ret: forall st,
     Ret / st i-->  st
   where " i '/' st 'i-->' st'" := (instr_class_istep i st st').
+Hint Constructors instr_class_istep.
 
 Theorem instr_class_istep_deterministic : forall init_st st st' i, 
   i / init_st i--> st ->
@@ -219,24 +214,7 @@ Qed.
 Theorem instr_class_always_isteps : forall st i,
   exists st', i / st i--> st'.
 Proof.
-  intros st i. induction i; eexists.
-- apply I_Heap_Read.
-- apply I_Heap_Write.
-- apply I_Heap_Check.
-- apply I_Call_Check.
-- apply I_Reg_Move.
-- apply I_Reg_Write. 
-- apply I_Stack_Expand.
-- apply I_Stack_Contract.
-- apply I_Stack_Read.
-- apply I_Stack_Write.
-- apply I_Indirect_Call.
-- apply I_Direct_Call.
-- apply I_Branch.
-- apply I_UniOp.
-- apply I_BinOp.
-- apply I_DivOp.
-- apply I_Ret.
+  intros st i. induction i; eexists; auto.
 Qed.
 
 Definition run_basic_block (bb : basic_block) (s : state) : state :=

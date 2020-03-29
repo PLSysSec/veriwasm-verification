@@ -77,15 +77,12 @@ Inductive safe_instr_class : instr_class -> state -> Prop :=
   safe_instr_class (Direct_Call name) st
 | I_Branch_Safe: forall st c,
   safe_instr_class (Branch c) st
-| I_UniOp_Safe: forall st op r_dst,
-  safe_instr_class (UniOp op r_dst) st
-| I_BinOp_Safe: forall st op r_dst r_src,
-  safe_instr_class (BinOp op r_dst r_src) st
-| I_DivOp_Safe: forall st r_dst,
-  safe_instr_class (DivOp r_dst) st
+| I_Op_Safe: forall st op rs_dst rs_src,
+  safe_instr_class (Op op rs_dst rs_src) st
 | I_Ret_Safe: forall st,
   length st.(stack) = 0 ->
   safe_instr_class (Ret) st.
+Hint Constructors safe_instr_class.
 
 (*
 Fixpoint is_basic_block_safe (s : state) (bb : basic_block) : bool :=
@@ -172,41 +169,32 @@ st1 ≤ st2 ->
 i / st2 v--> st2' ->
 exists st1', i / st1 v--> st1'.
 Proof.
-intros i st1 st2 st2' Hleq Hstep. inversion Hstep; subst.
-- eexists. eapply V_Heap_Read.
+intros i st1 st2 st2' Hleq Hstep. inversion Hstep; subst; eexists; auto.
+- eapply V_Heap_Read.
   + inversion Hleq. subst. specialize H1 with r_base.
   inversion H1. subst. rewrite H6. auto. subst. rewrite H in H4. inversion H4. auto.
   + inversion Hleq. subst. specialize H1 with r_src.
   inversion H1. subst. rewrite H6. auto. subst. rewrite H0 in H5. inversion H5. auto.
-- eexists. eapply V_Heap_Write.
+- eapply V_Heap_Write.
   + inversion Hleq. subst. specialize H1 with r_base.
   inversion H1. subst. rewrite H6. auto. subst. rewrite H in H4. inversion H4. auto.
   + inversion Hleq. subst. specialize H1 with r_dst.
   inversion H1. subst. rewrite H6. auto. subst. rewrite H0 in H5. inversion H5. auto.
-- eexists. eapply V_Heap_Check.
-- eexists. eapply V_Call_Check.
-- eexists. eapply V_Reg_Move.
-- eexists. eapply V_Reg_Write.
-- eexists. eapply V_Stack_Expand.
-- eexists. eapply V_Stack_Contract.
+- eapply V_Stack_Contract.
   inversion Hleq. subst. lia.
-- eexists. eapply V_Stack_Read.
+- eapply V_Stack_Read.
   inversion Hleq. subst. lia.
-- eexists. eapply V_Stack_Write.
+- eapply V_Stack_Write.
   inversion Hleq. subst. lia.
-- inversion Hleq. subst. eexists. eapply V_Indirect_Call.
+- eapply V_Indirect_Call; inversion Hleq; subst. 
   + specialize H1 with reg. inversion H1. subst. rewrite <- H6 in H. auto.
     rewrite H in H6. inversion H6. auto.
   + specialize H1 with rdi. inversion H1. subst. rewrite <- H6 in H0. auto.
     rewrite H0 in H4. inversion H4. auto.
-- inversion Hleq. subst. eexists. eapply V_Direct_Call.
+- eapply V_Direct_Call; inversion Hleq; subst. 
   + specialize H0 with rdi. inversion H0. subst. rewrite <- H5 in H. auto.
     rewrite H in H3. inversion H3. auto.
-- eexists. eapply V_Branch.
-- eexists. eapply V_UniOp.
-- eexists. eapply V_BinOp.
-- eexists. eapply V_DivOp.
-- eexists. eapply V_Ret.
+- eapply V_Ret.
   inversion Hleq. subst. Search (length). inversion H. rewrite H4 in H2. simpl in H2.
   destruct (abs_stack st1). unfold empty. auto. inversion H2.
 Qed.
@@ -259,18 +247,13 @@ Theorem instr_class_vstep_safe : forall i abs_st abs_st' st,
   i / abs_st v--> abs_st' ->
   safe_instr_class i st.
 Proof.
-  intros i abs_st abs_st' st Hst Hstep. induction Hstep; subst.
+  intros i abs_st abs_st' st Hst Hstep. induction Hstep; subst; auto.
 - apply I_Heap_Read_Safe.
   + inversion H0. unfold abstractify_registers, abstractify_int64 in H2. apply safe_mem_base; auto.
   + inversion H0. unfold abstractify_registers, abstractify_int64 in H2. apply safe_mem_bound in H2; auto.
 - apply I_Heap_Write_Safe.
   + inversion H0. unfold abstractify_registers, abstractify_int64 in H2. apply safe_mem_base; auto.
   + inversion H0. unfold abstractify_registers, abstractify_int64 in H2. apply safe_mem_bound in H2; auto.
-- apply I_Heap_Check_Safe.
-- apply I_Call_Check_Safe.
-- apply I_Reg_Move_Safe.
-- apply I_Reg_Write_Safe.
-- apply I_Stack_Expand_Safe.
 - apply I_Stack_Contract_Safe.
   unfold abstractify, abstractify_list in H. simpl in H.
   rewrite <- map_length with (f := abstractify_int64 st). auto.
@@ -283,10 +266,6 @@ Proof.
   + inversion H. unfold abstractify_registers, abstractify_int64 in H2. apply safe_function_index; auto.
 - apply I_Direct_Call_Safe.
   inversion H. unfold abstractify_registers, abstractify_int64 in H1. apply safe_mem_base; auto.
-- apply I_Branch_Safe.
-- apply I_UniOp_Safe.
-- apply I_BinOp_Safe.
-- apply I_DivOp_Safe.
 - apply I_Ret_Safe.
   inversion H. unfold abstractify_list in H1. apply map_eq_nil in H1. rewrite H1. auto.
 Qed.
@@ -392,11 +371,7 @@ Proof.
 - admit.
 - admit.
 - admit.
-- admit.
-- inversion Hi. subst. apply leq_state_rule.
-  * intros reg. admit.
-  * admit.
-- inversion Hi. apply leq_state_rule. intros reg. apply leq_info_refl. intro i. apply leq_info_refl.
+- inversion Hi. apply leq_state_rule. intros reg. apply leq_info_refl. intro i. apply leq_info_refl. auto.
 Admitted.
 
 Theorem basic_block_vstep_safe :

@@ -35,14 +35,11 @@ Inductive register : Set :=
 Inductive value : Set :=
 | Const : int64 -> value.
 
-Inductive uni_opcode : Set :=
-| Not : uni_opcode.
-
-Inductive bin_opcode : Set := 
-| Add : bin_opcode
-| Sub : bin_opcode
-| Mult : bin_opcode
-| Div : bin_opcode.
+Inductive opcode : Set := 
+| Add : opcode
+| Sub : opcode
+| Mult : opcode
+| Div : opcode.
 
 Fixpoint update {A} (l : list A) (i : nat) (v : A) : list A :=
 match l, i with
@@ -87,9 +84,7 @@ Inductive instr_class :=
 | Indirect_Call : register -> instr_class
 | Direct_Call : string -> instr_class
 | Branch : conditional -> instr_class
-| UniOp : uni_opcode -> register -> instr_class
-| BinOp : bin_opcode -> register -> register -> instr_class
-| DivOp : register -> instr_class
+| Op : opcode -> list register -> list register -> instr_class
 | Ret : instr_class.
 
 Definition basic_block := list instr_class.
@@ -148,7 +143,7 @@ Defined.
 
 Definition instr_class_eq_dec : forall (x y : instr_class), {x=y} + {x<>y}.
   intros; decide equality; try apply register_eq_dec; try apply value_eq_dec; try apply string_dec;
-  try apply conditional_eq_dec; decide equality.
+  try apply conditional_eq_dec; decide equality; decide equality.
 Defined.
 
 Definition basic_block_eq_dec : forall (x y : basic_block), {x=y} + {x<>y}.

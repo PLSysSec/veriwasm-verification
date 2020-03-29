@@ -48,6 +48,8 @@ Record abs_state := {
 }.
 
 Definition abs_state_eq_dec : forall (x y : abs_state), {x=y} + {x<>y}.
+intros x y. decide equality; subst; try decide equality; try decide equality; try decide equality.
+admit. (* funcational extensionality we can get rid of making this an axiim if we use a different implementation of map *)
 Admitted.
 
 Definition abs_state_eqb (a : abs_state) (b : abs_state) : bool :=
@@ -213,16 +215,13 @@ Inductive instr_class_vstep : instr_class -> abs_state -> abs_state -> Prop :=
     Direct_Call str / st v-->  st
 | V_Branch: forall st cond, 
     Branch cond / st v--> st
-| V_UniOp: forall st op r_dst,
-    UniOp op r_dst / st v--> (set_register_info st r_dst empty_info)
-| V_BinOp: forall st op r_dst r_src,
-    BinOp op r_dst r_src / st v--> (set_register_info st r_dst empty_info)
-| V_DivOp: forall st r_dst,
-    DivOp r_dst / st v--> (set_register_info (set_register_info st rax empty_info) r_dst empty_info)
+| V_Op: forall st op rs_dst rs_src,
+    Op op rs_dst rs_src / st v--> fold_left (fun s r => set_register_info s r empty_info) rs_dst st
 | V_Ret: forall st,
     empty st.(abs_stack) ->
     Ret / st v-->  st
   where " i '/' st 'v-->' st'" := (instr_class_vstep i st st').
+Hint Constructors instr_class_vstep.
 
 (* TODO: The semantics for operations might be opcode-dependent; this should get fixed
  * when opcodes return lists of modified registers *)
@@ -265,9 +264,7 @@ Definition flow_function (st : abs_state) (i : instr_class) : abs_state :=
     then st
     else set_error_state st
   | Branch _ => st
-  | UniOp _ r => set_register_info st r empty_info
-  | BinOp _ r_dst r_src => set_register_info st r_dst empty_info
-  | DivOp r => set_register_info (set_register_info st rax empty_info) r empty_info
+  | Op _ rs_dst rs_src => fold_left (fun s r => set_register_info s r empty_info) rs_dst st
   | Ret => if eqb (length st.(abs_stack)) 0
     then st
     else set_error_state st
