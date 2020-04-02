@@ -125,6 +125,20 @@ Definition edges_in_nodes (cfg : cfg_ty) : Prop :=
 Definition well_formed_cfg (cfg : cfg_ty) : Prop :=
   unique_bb cfg /\ edges_in_nodes cfg.
 
+Definition well_formed_fun (f : function_ty) : Prop :=
+  well_formed_cfg (fst f).
+
+Definition unique_fun_name (p : program_ty) : Prop :=
+  forall f f',
+    In f p.(funs) ->
+    In f' p.(funs) ->
+    (eq f f' \/ (not (eq (snd f) (snd f')))).
+
+Definition well_formed_program (p : program_ty) : Prop :=
+  unique_fun_name p /\
+  forall f,
+    In f p.(funs) -> well_formed_fun f.
+
 Definition register_eq_dec : forall (x y : register), {x=y} + {x<>y}.
   intros; decide equality.
 Defined.

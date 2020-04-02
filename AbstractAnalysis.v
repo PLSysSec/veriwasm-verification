@@ -223,8 +223,6 @@ Inductive instr_class_vstep : instr_class -> abs_state -> abs_state -> Prop :=
   where " i '/' st 'v-->' st'" := (instr_class_vstep i st st').
 Hint Constructors instr_class_vstep.
 
-(* TODO: The semantics for operations might be opcode-dependent; this should get fixed
- * when opcodes return lists of modified registers *)
 (* TODO: This can be combined with the inductive definition for instr_class_vstep *)
 (* TODO: Can infer bounds for any literals on Reg_Write *)
 Definition flow_function (st : abs_state) (i : instr_class) : abs_state :=
