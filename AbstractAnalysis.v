@@ -150,7 +150,7 @@ Fixpoint meet_abs_states (ss : list abs_state) : abs_state :=
 
 Fixpoint get_parent_nodes (n : node_ty) (es : list edge_ty) : list node_ty :=
   match es with
-  | e :: es' =>if node_ty_eqb n (snd (fst e))
+  | e :: es' => if node_ty_eqb n (snd (fst e))
     then fst (fst e) :: get_parent_nodes n es'
     else get_parent_nodes n es'
   | _ => nil
@@ -158,7 +158,7 @@ Fixpoint get_parent_nodes (n : node_ty) (es : list edge_ty) : list node_ty :=
 
 Fixpoint get_child_nodes (n : node_ty) (es : list edge_ty) : list node_ty :=
   match es with
-  | e :: es' =>if node_ty_eqb n (fst (fst e))
+  | e :: es' => if node_ty_eqb n (fst (fst e))
     then snd (fst e) :: get_child_nodes n es'
     else get_child_nodes n es'
   | _ => nil
@@ -166,6 +166,14 @@ Fixpoint get_child_nodes (n : node_ty) (es : list edge_ty) : list node_ty :=
 
 Definition get_parent_states (n : node_ty) (m : total_map node_ty abs_state) (cfg : cfg_ty) : list abs_state :=
   map m (get_parent_nodes n cfg.(edges)).
+
+Fixpoint get_terminal_nodes (ns : list node_ty) (es : list edge_ty) : list node_ty :=
+  match ns with
+  | n :: ns' => if eqb (length (get_parent_nodes n es)) 0
+      then n :: get_terminal_nodes ns' es
+      else get_terminal_nodes ns' es
+  | _ => nil
+  end.
 
 Definition empty {A} (l : list A) :=
   l = nil.
@@ -295,6 +303,22 @@ Fixpoint worklist (cfg : cfg_ty) (queue : list node_ty) (m : total_map node_ty a
     end
   | _ => t_empty abs_empty_state
   end.
+
+(* TODO: This can be removed when we get the proof about worklist termination *)
+Definition default_fuel := 100000.
+
+Definition empty_state_map : total_map node_ty abs_state := t_empty abs_empty_state.
+
+Definition run_worklist (f : function_ty) : abs_state :=
+  let state_map := worklist (fst f) ((fst f).(start_node) :: nil) empty_state_map default_fuel in
+  let terminal_states := map state_map (get_terminal_nodes (fst f).(nodes) (fst f).(edges)) in
+  fold_left meet_abs_state terminal_states abs_empty_state.
+
+(* TODO: make sure abs_registers is complete *)
+Definition run_analysis (p : program_ty) : bool :=
+  let worklist_terminal_states := map run_worklist p.(funs) in
+  let worklist_errors := map abs_error worklist_terminal_states in
+  fold_left orb worklist_errors false.
 
 Theorem instr_class_vstep_deterministic: forall init_st st st' i,
   i / init_st v--> st ->
