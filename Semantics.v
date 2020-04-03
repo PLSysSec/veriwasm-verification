@@ -261,6 +261,7 @@ match (s.(function_table) i) with
 end.
 
 (* TODO: Make sure we are handling errors correctly *)
+(* TODO: Allow read-only access to earlier stack values up to some constant *)
 Fixpoint run_program (p : program_ty) (cfg : cfg_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
   match fuel with
   | 0 => set_error_state s

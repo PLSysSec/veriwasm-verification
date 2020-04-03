@@ -315,7 +315,7 @@ Definition run_worklist (f : function_ty) : abs_state :=
   fold_left meet_abs_state terminal_states abs_empty_state.
 
 (* TODO: make sure abs_registers is complete *)
-Definition run_analysis (p : program_ty) : bool :=
+Definition is_program_safe (p : program_ty) : bool :=
   let worklist_terminal_states := map run_worklist p.(funs) in
   let worklist_errors := map abs_error worklist_terminal_states in
   fold_left orb worklist_errors false.
