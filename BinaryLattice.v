@@ -1,4 +1,5 @@
 Require Import VerifiedVerifier.Lattice.
+Require Import VerifiedVerifier.Ltac.
 
 Inductive BinarySet : Set :=
 | top 
@@ -17,19 +18,19 @@ Definition BinarySet_eqb (a : BinarySet) (b : BinarySet) : bool :=
 Inductive BinaryRel : BinarySet -> BinarySet -> Prop :=
 | bot_rel x : BinaryRel bottom x
 | top_rel x : BinaryRel x top.
+Hint Constructors BinaryRel.
 
 Program Instance BinaryOrder : Order BinarySet := { ord := BinaryRel }.
 Next Obligation.
   unfold RelationClasses.Reflexive.
-  intros x. destruct x. apply top_rel. apply bot_rel. 
+  intros x. destruct x; auto.
 Defined.
-Next Obligation. Proof.
-  induction x; induction y; auto; inversion H; inversion H0.
+Next Obligation.
+  destruct x, y; auto; inversion H; inversion H0.
 Defined.
-Next Obligation. Proof.
+Next Obligation.
   unfold RelationClasses.Transitive.
-  induction x; induction y; induction z; auto; intros; try apply self_rel;
-    try inversion H; try inversion H0.
+  destruct x, y, z; auto; inversion H; inversion H0.
 Defined.
 
 Definition meet_BinarySet (a : BinarySet) (b : BinarySet) : BinarySet :=
@@ -59,41 +60,15 @@ Program Instance BinaryLattice : Lattice BinarySet :=
     join_absorptive  : forall a b, a ⊔ (a ⊓ b) = a;
     join_idempotent  : forall a, a ⊔ a = a*)
   }.
-Next Obligation.
-  unfold meet_BinarySet; induction a; induction b; auto.
-Defined.
-Next Obligation. Proof.
-  unfold meet_BinarySet; induction a; induction b; induction c; auto.
-Defined.
-Next Obligation. Proof.
-  unfold meet_BinarySet; unfold join_BinarySet; induction a; induction b; auto.
-Defined.
-Next Obligation. Proof.
-  unfold meet_BinarySet; induction a; auto.
-Defined.
-Next Obligation. Proof.
-  unfold join_BinarySet; induction a; induction b; auto.
-Defined.
-Next Obligation. Proof.
-  unfold join_BinarySet; induction a; induction b; induction c; auto.
-Defined.
-Next Obligation. Proof.
-  unfold join_BinarySet; unfold meet_BinarySet; induction a; induction b; auto.
-Defined.
-Next Obligation. Proof.
-  unfold join_BinarySet; induction a; auto.
-Defined.
+Next Obligation. destruct a, b; auto. Defined.
+Next Obligation. destruct a, b, c; auto. Defined.
+Next Obligation. destruct a, b; auto. Defined.
+Next Obligation. destruct a; auto. Defined.
+Next Obligation. destruct a, b; auto. Defined.
+Next Obligation. destruct a, b, c; auto. Defined.
+Next Obligation. destruct a, b; auto. Defined.
+Next Obligation. destruct a; auto. Defined.
 
 Program Instance BinaryLOSet : LOSet BinaryOrder BinaryLattice.
-Next Obligation.
-  split.
-  - intros. induction a; induction b; auto; unfold meet_BinarySet; inversion H.
-  - intros. induction a; induction b; auto; unfold meet_BinarySet in H; inversion H;
-    try apply bot_rel; try apply top_rel.
-Defined.
-Next Obligation. Proof.
-  split.
-  - intros. induction a; induction b; auto; unfold join_BinarySet; inversion H.
-  - intros. induction a; induction b; auto; unfold join_BinarySet in H; inversion H;
-    try apply bot_rel; try apply top_rel.
-Defined.
+Next Obligation. split; intros H; destruct a, b; auto; inversion H. Defined.
+Next Obligation. split; intros H; destruct a, b; auto; inversion H. Defined.

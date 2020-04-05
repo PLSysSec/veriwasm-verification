@@ -131,6 +131,9 @@ Definition run_conditional (c : conditional) (s : state) : bool :=
 | Counter_Register_Zero => Word.eq (get_register s rcx) (Word.repr 0)
 end.
 
+Definition run_op (op : opcode) (rs_dst : list register) (rs_src : list register) (s : state) :=
+fold_left (fun s r => set_register s r Word.zero) rs_dst s.
+
 (* TODO: Implement Op *)
 (* TODO: Can we index the stack from registers (probably), or only constants *)
 Definition run_instr (inst : instr_class) (s : state) : state := 
@@ -148,8 +151,9 @@ Definition run_instr (inst : instr_class) (s : state) : state :=
 (*TODO: Make sure calls are right*)
 | Indirect_Call r => s
 | Direct_Call name => s
-| Branch c => s
+| Branch c t_label f_label => s
 | Op op rs_dst rs_src => s
+| Jmp j_label => s
 | Ret => s
 end.
 
@@ -170,8 +174,12 @@ Inductive instr_class_istep : instr_class -> state -> state -> Prop :=
     Heap_Write r_dst r_val r_base / st i--> write_heap st (Word.add (get_register st r_dst) (get_register st r_base)) (get_register st r_val)
 | I_Heap_Check: forall st r_src,
     Heap_Check r_src / st i--> set_register st r_src (Word.modu (get_register st r_src) fourGB)
-| I_Call_Check: forall st r_src,
-    Call_Check r_src / st i--> st (* probably wrong *)
+| I_Call_Check_Valid: forall st r_src fname,
+    (function_table st) (get_register st r_src) = Some fname ->
+    Call_Check r_src / st i--> st 
+| I_Call_Check_Invalid: forall st r_src,
+    (function_table st) (get_register st r_src) = None ->
+    Call_Check r_src / st i--> set_error_state st 
 | I_Reg_Move: forall st r_src r_dst,
     Reg_Move r_dst r_src / st i--> set_register st r_dst (get_register st r_src)
 | I_Reg_Write: forall st r_dst val,
@@ -184,18 +192,40 @@ Inductive instr_class_istep : instr_class -> state -> state -> Prop :=
     Stack_Read r_dst i / st i--> set_register st r_dst (read_stack st i)
 | I_Stack_Write: forall st i r_src,
     Stack_Write i r_src / st i--> write_stack st i (get_register st r_src)
+| I_Op: forall st op rs_dst rs_src,
+    (Op op rs_dst rs_src) / st i--> (run_op op rs_dst rs_src st)
 (* those calls might also be wrong *)
 | I_Indirect_Call: forall st reg,
     Indirect_Call reg / st i-->  st
-| I_Direct_Call: forall st name,
-    Direct_Call name / st i-->  st
-| I_Branch: forall st c,
-    (Branch c) / st i--> st
-| I_Op: forall st op rs_dst rs_src,
-    (Op op rs_dst rs_src) / st i--> st
+| I_Direct_Call: forall st fname,
+    Direct_Call fname / st i-->  st
+| I_Branch: forall st c t_label f_label,
+    (Branch c t_label f_label) / st i--> st
+| I_Jmp: forall st j_label,
+    (Jmp j_label) / st i--> st
 | I_Ret: forall st,
     Ret / st i-->  st
-  where " i '/' st 'i-->' st'" := (instr_class_istep i st st').
+  where " i '/' st 'i-->' st'" := (instr_class_istep i st st')
+
+with basic_block_istep : basic_block -> state -> state -> Prop :=
+| I_Basic_Block_Nil: forall st,
+  basic_block_istep nil st st
+| I_Basic_Block_Trap: forall bb st,
+  error st = true ->
+  basic_block_istep bb st st
+| I_Basic_Block_Cons: forall i is st st' st'',
+  i / st i--> st' ->
+  basic_block_istep is st' st'' ->
+  basic_block_istep (i :: is) st st'
+
+with function_istep : function -> state -> state -> Prop :=
+| I_Function: forall f bb st st',
+  head (V f) = Some bb ->
+  basic_block_istep bb st st' ->
+  function_istep f st st'
+.
+
+  
 Hint Constructors instr_class_istep.
 
 Theorem instr_class_istep_deterministic : forall init_st st st' i, 
