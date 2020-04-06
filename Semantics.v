@@ -27,6 +27,7 @@ Record state := {
   stack : stack_ty;
   heap : heap_ty;
   heap_base : int64;
+  function_table : function_table_ty;
   error : bool;
   exit : bool;
 }.
@@ -45,6 +46,7 @@ Definition set_register (s : state) (r : register) (v : int64) : state :=
    stack := s.(stack);
    heap := s.(heap);
    heap_base := s.(heap_base);
+   function_table := s.(function_table);
    error := s.(error);
    exit := s.(exit); |}.
 
@@ -54,6 +56,7 @@ Definition set_flags (s : state) (f : flags_ty) : state :=
    stack := s.(stack);
    heap := s.(heap);
    heap_base := s.(heap_base) ;
+   function_table := s.(function_table);
    error := s.(error);
    exit := s.(exit); |}.
 
@@ -62,7 +65,8 @@ Definition expand_stack (s : state) (i : nat) : state :=
    flags := s.(flags);
    stack := s.(stack) ++ (repeat Word.zero i);
    heap := s.(heap);
-   heap_base := s.(heap_base) ;
+   heap_base := s.(heap_base);
+   function_table := s.(function_table);
    error := s.(error);
    exit := s.(exit); |}.
 
@@ -75,6 +79,7 @@ contract_stack {| regs := s.(regs);
    stack := removelast s.(stack);
    heap := s.(heap);
    heap_base := s.(heap_base) ;
+   function_table := s.(function_table);
    error := s.(error);
    exit := s.(exit); |}
  n
@@ -92,6 +97,7 @@ Definition write_stack (s : state) (i : nat) (val : int64) : state :=
    stack := Machine.update s.(stack) i val;
    heap := s.(heap);
    heap_base := s.(heap_base) ;
+   function_table := s.(function_table);
    error := s.(error);
    exit := s.(exit); |}.
 
@@ -104,6 +110,7 @@ Definition write_heap (s : state) (i : int64) (v : int64) : state :=
 	 stack := s.(stack);
 	 heap := t_update int64_eq_dec s.(heap) i v;
    heap_base := s.(heap_base);
+   function_table := s.(function_table);
    error := s.(error);
    exit := s.(exit); |}.
 
@@ -113,6 +120,7 @@ Definition set_error_state (s : state) : state :=
 	 stack := s.(stack);
 	 heap := s.(heap);
    heap_base := s.(heap_base);
+   function_table := s.(function_table);
    error := true;
    exit := s.(exit); |}.
 
@@ -122,6 +130,7 @@ Definition set_exit_state (s : state) : state :=
 	 stack := s.(stack);
 	 heap := s.(heap);
    heap_base := s.(heap_base);
+   function_table := s.(function_table);
    error := s.(error);
    exit := true; |}.
 
@@ -277,7 +286,7 @@ Definition function_lookup (p : program_ty) (i : int64) : option function_ty :=
    to a dynamic check at every memory operation *)
 Fixpoint run_program' (p : program_ty) (cfg : cfg_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
   match fuel with
-  | 0 => set_error_state s
+  | 0 => set_exit_state s
   | S fuel' =>
     let bb := fst n in
     let s' := run_basic_block bb s in
@@ -302,7 +311,8 @@ Fixpoint run_program' (p : program_ty) (cfg : cfg_ty) (n : node_ty) (s : state) 
 
 (* TODO: Some of these are configurable (e.g. heap_base) *)
 (* TODO: Make sure these initial values are correct *)
-Definition start_state : state :=
+(* TODO: Prove that this correctly sets up the function table *)
+Definition start_state (p : program_ty) : state :=
   let heap_base_val := Word.repr 4096 in
   {| regs := fun r => if register_eq_dec r rdi
                         then heap_base_val
@@ -311,9 +321,13 @@ Definition start_state : state :=
     stack := nil;
     heap := fun a => Word.repr 0;
     heap_base := heap_base_val;
+    function_table := fun a => match p.(fun_table) a with
+                               | Some f => Some (snd f)
+                               | None => None
+                               end;
     error := false;
     exit := false; |}.
 
 Definition run_program (p : program_ty) (fuel : nat) : state :=
   let main := fst p.(main) in
-  run_program' p main main.(start_node) start_state fuel.
+  run_program' p main main.(start_node) (start_state p) fuel.
