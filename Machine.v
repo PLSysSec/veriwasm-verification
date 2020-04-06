@@ -106,8 +106,9 @@ Record cfg_ty := {
 Definition function_ty := prod cfg_ty string.
 
 Record program_ty := {
-  funs : list function_ty;
-  main : function_ty
+  fun_table : partial_map int64 function_ty;
+  fun_list : list function_ty;
+  main : function_ty;
 }.
 
 Definition unique_bb (cfg : cfg_ty) : Prop :=
@@ -130,14 +131,27 @@ Definition well_formed_fun (f : function_ty) : Prop :=
 
 Definition unique_fun_name (p : program_ty) : Prop :=
   forall f f',
-    In f p.(funs) ->
-    In f' p.(funs) ->
+    In f p.(fun_list) ->
+    In f' p.(fun_list) ->
     (eq f f' \/ (not (eq (snd f) (snd f')))).
+
+Definition fun_list_table_contents (p : program_ty) : Prop :=
+  forall f,
+    In f p.(fun_list) ->
+    exists i,
+      p.(fun_table) i = Some f.
+
+Definition fun_table_list_contents (p : program_ty) : Prop :=
+  forall i f,
+    p.(fun_table) i = Some f ->
+    In f p.(fun_list).
 
 Definition well_formed_program (p : program_ty) : Prop :=
   unique_fun_name p /\
+  fun_list_table_contents p /\
+  fun_table_list_contents p /\
   forall f,
-    In f p.(funs) -> well_formed_fun f.
+    In f p.(fun_list) -> well_formed_fun f.
 
 Definition register_eq_dec : forall (x y : register), {x=y} + {x<>y}.
   intros; decide equality.

@@ -18,14 +18,17 @@ Definition flags_ty := total_map flag int1.
 
 Definition function_table_ty := partial_map int64 string.
 
+(* TODO: We make an exit flag so we can keep track of error exits
+   (through sfi-violating properties) vs safe exits (like traps or
+   running out of fuel because of non-termination) *)
 Record state := {
   regs : registers_ty;
   flags : flags_ty;
   stack : stack_ty;
   heap : heap_ty;
   heap_base : int64;
-  function_table : function_table_ty;
   error : bool;
+  exit : bool;
 }.
 
 Fixpoint value_to_int64 (s : state) (v :value) : int64 :=
@@ -42,8 +45,8 @@ Definition set_register (s : state) (r : register) (v : int64) : state :=
    stack := s.(stack);
    heap := s.(heap);
    heap_base := s.(heap_base);
-   function_table := s.(function_table);
-   error := s.(error) |}.
+   error := s.(error);
+   exit := s.(exit); |}.
 
 Definition set_flags (s : state) (f : flags_ty) : state :=
 {| regs := s.(regs);
@@ -51,8 +54,8 @@ Definition set_flags (s : state) (f : flags_ty) : state :=
    stack := s.(stack);
    heap := s.(heap);
    heap_base := s.(heap_base) ;
-   function_table := s.(function_table);
-   error := s.(error) |}.
+   error := s.(error);
+   exit := s.(exit); |}.
 
 Definition expand_stack (s : state) (i : nat) : state :=
 {| regs := s.(regs);
@@ -60,8 +63,8 @@ Definition expand_stack (s : state) (i : nat) : state :=
    stack := s.(stack) ++ (repeat Word.zero i);
    heap := s.(heap);
    heap_base := s.(heap_base) ;
-   function_table := s.(function_table);
-   error := s.(error) |}.
+   error := s.(error);
+   exit := s.(exit); |}.
 
 Fixpoint contract_stack (s : state) (i : nat) : state :=
 match i with
@@ -72,8 +75,8 @@ contract_stack {| regs := s.(regs);
    stack := removelast s.(stack);
    heap := s.(heap);
    heap_base := s.(heap_base) ;
-   function_table := s.(function_table);
-   error := s.(error) |}
+   error := s.(error);
+   exit := s.(exit); |}
  n
 end.
 
@@ -89,8 +92,8 @@ Definition write_stack (s : state) (i : nat) (val : int64) : state :=
    stack := Machine.update s.(stack) i val;
    heap := s.(heap);
    heap_base := s.(heap_base) ;
-   function_table := s.(function_table);
-   error := s.(error) |}.
+   error := s.(error);
+   exit := s.(exit); |}.
 
 Definition read_heap (s : state) (i : int64) : int64 :=
 s.(heap) i.
@@ -101,8 +104,8 @@ Definition write_heap (s : state) (i : int64) (v : int64) : state :=
 	 stack := s.(stack);
 	 heap := t_update int64_eq_dec s.(heap) i v;
    heap_base := s.(heap_base);
-   function_table := s.(function_table);
-   error := s.(error) |}.
+   error := s.(error);
+   exit := s.(exit); |}.
 
 Definition set_error_state (s : state) : state :=
 {| regs := s.(regs);
@@ -110,8 +113,17 @@ Definition set_error_state (s : state) : state :=
 	 stack := s.(stack);
 	 heap := s.(heap);
    heap_base := s.(heap_base);
-   function_table := s.(function_table);
-   error := true |}.
+   error := true;
+   exit := s.(exit); |}.
+
+Definition set_exit_state (s : state) : state :=
+{| regs := s.(regs);
+	 flags := s.(flags);
+	 stack := s.(stack);
+	 heap := s.(heap);
+   heap_base := s.(heap_base);
+   error := s.(error);
+   exit := true; |}.
 
 Definition fourGB : int64 := (Word.shl (Word.repr 2) (Word.repr 32)).
 
@@ -252,17 +264,18 @@ Definition next_node (cfg : cfg_ty) (s : state) (n : node_ty) : option node_ty :
   end.
 
 Definition get_function_from_name (p : program_ty) (name : string) : option function_ty :=
-  find (fun x => eqb (snd x) name) p.(funs).
+  find (fun x => eqb (snd x) name) p.(fun_list).
 
-Definition function_lookup (p : program_ty) (s : state) (i : int64) : option function_ty :=
-match (s.(function_table) i) with
-| Some name => get_function_from_name p name
-| None => get_function_from_name p "trap"
-end.
+(* TODO: Might return "trap" function name instead of None *)
+Definition function_lookup (p : program_ty) (i : int64) : option function_ty :=
+  p.(fun_table) i.
 
 (* TODO: Make sure we are handling errors correctly *)
 (* TODO: Allow read-only access to earlier stack values up to some constant *)
-Fixpoint run_program (p : program_ty) (cfg : cfg_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
+(* TODO: Trapping is going to be really weird here *)
+(* NOTE: Our method of returning an error state for every unsafe operation is equivalent
+   to a dynamic check at every memory operation *)
+Fixpoint run_program' (p : program_ty) (cfg : cfg_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
   match fuel with
   | 0 => set_error_state s
   | S fuel' =>
@@ -271,18 +284,36 @@ Fixpoint run_program (p : program_ty) (cfg : cfg_ty) (n : node_ty) (s : state) (
     let s'' := match last bb Ret with
                | Direct_Call name =>
                    match get_function_from_name p name with
-                   | Some f => run_program p (fst f) (fst f).(start_node) s' fuel'
+                   | Some f => run_program' p (fst f) (fst f).(start_node) s' fuel'
                    | None => set_error_state s'
                    end
                | Indirect_Call r =>
-                   match function_lookup p s' (get_register s r) with
-                   | Some f => run_program p (fst f) (fst f).(start_node) s' fuel'
+                   match function_lookup p (get_register s r) with
+                   | Some f => run_program' p (fst f) (fst f).(start_node) s' fuel'
                    | None => set_error_state s'
                    end
                | _ => s'
                end in
     match next_node cfg s n with
-    | Some n' => run_program p cfg n' s'' fuel'
+    | Some n' => run_program' p cfg n' s'' fuel'
     | None => s''
     end
   end.
+
+(* TODO: Some of these are configurable (e.g. heap_base) *)
+(* TODO: Make sure these initial values are correct *)
+Definition start_state : state :=
+  let heap_base_val := Word.repr 4096 in
+  {| regs := fun r => if register_eq_dec r rdi
+                        then heap_base_val
+                        else Word.repr 0;
+    flags := fun f => Word.repr 0;
+    stack := nil;
+    heap := fun a => Word.repr 0;
+    heap_base := heap_base_val;
+    error := false;
+    exit := false; |}.
+
+Definition run_program (p : program_ty) (fuel : nat) : state :=
+  let main := fst p.(main) in
+  run_program' p main main.(start_node) start_state fuel.
