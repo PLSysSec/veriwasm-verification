@@ -6,6 +6,7 @@
 *.swp
 *.vok
 *.vos
+.#*.v
 
 Makefile.coq
 Makefile.coq.conf
