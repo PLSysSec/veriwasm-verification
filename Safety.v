@@ -420,16 +420,26 @@ Proof.
   simpl. rewrite contract_stack_never_changes_error with n s in H. assumption.
 Qed.
 
-Theorem only_true_error_matters :
-  forall s s' bb,
+Theorem run_bb_any_state_error :
+  forall s bb,
     s.(error) = true ->
-    s'.(error) = true ->
-    (run_basic_block bb s).(error) = (run_basic_block bb s').(error).
+    forall s',
+      s'.(error) = true ->
+      (run_basic_block bb s).(error) = (run_basic_block bb s').(error).
 Proof.
-  intros. induction bb.
-  - unfold run_basic_block. simpl.
-    rewrite H. rewrite H0. reflexivity.
-  -
+  intros s bb H. induction bb.
+  - simpl. intros. rewrite H. rewrite H0. reflexivity.
+  - intros. simpl. assert (IHbb' := IHbb).
+    specialize IHbb with (run_instr a s').
+    specialize IHbb' with (run_instr a s).
+    destruct IHbb.
+    apply run_instr_maintains_error.
+    apply H0.
+    destruct IHbb'.
+    apply run_instr_maintains_error.
+    apply H.
+    reflexivity.
+Qed.
 
 Theorem run_bb_maintains_error :
   forall s,
@@ -438,6 +448,11 @@ Theorem run_bb_maintains_error :
       (run_basic_block bb s).(error) = true.
 Proof.
   intros. induction bb. auto.
-  simpl. apply run_instr_maintains_error.
-
-Admitted.
+  simpl. pose proof run_bb_any_state_error as H0.
+  specialize H0 with (run_instr a s) bb s.
+  pose proof run_instr_maintains_error as H1.
+  specialize H1 with s a.
+  assert (H' := H).
+  apply H1 in H'. apply H0 in H'.
+  rewrite IHbb in H'. assumption. assumption.
+Qed.
