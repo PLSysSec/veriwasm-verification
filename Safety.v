@@ -354,12 +354,12 @@ Proof.
     * subst. simpl. rewrite register_get_after_set_eq. unfold abs_heap_bounded_info.
       unfold abstractify_registers. unfold abstractify_int64. unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64.
       simpl. rewrite register_get_after_set_eq. apply leq_info_rule; try apply top_rel.
-      simpl. Search (Word.lt). admit. (*this is clearly true. i gotta dig around for a useful lemma *) 
+      simpl. Search (Word.lt). admit. (*this is clearly true. i gotta dig around for a useful lemma *)
     * simpl. rewrite register_get_after_set_neq. unfold abs_heap_bounded_info.
       unfold abstractify_registers. unfold abstractify_int64. unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64.
       simpl. rewrite register_get_after_set_neq. apply leq_info_refl. apply n. apply n.
   + intros i. apply leq_info_refl.
-  + auto. 
+  + auto.
 - inversion Hi. subst. admit.
 - admit.
 - admit.
@@ -392,4 +392,52 @@ Proof.
   + apply IHbb with (abs_st := st').
     * admit. (*eapply instr_class_istep_abstractify_vstep. apply H5. apply H2.*)
     * auto.
+Admitted.
+
+Theorem contract_stack_never_changes_error :
+  forall i s,
+    s.(error) = (contract_stack s i).(error).
+Proof.
+  intros i. induction i. auto.
+  simpl. intros.
+  specialize IHi with {| regs := regs s; flags := flags s;
+                                stack := removelast (stack s);
+                                heap := heap s;
+                                heap_base := heap_base s;
+                                function_table := function_table s;
+                                error := error s;
+                                exit := exit s |}.
+  apply IHi.
+Qed.
+
+Theorem run_instr_maintains_error :
+  forall s,
+    s.(error) = true ->
+    forall i,
+      (run_instr i s).(error) = true.
+Proof.
+  intros. induction i; auto.
+  simpl. rewrite contract_stack_never_changes_error with n s in H. assumption.
+Qed.
+
+Theorem only_true_error_matters :
+  forall s s' bb,
+    s.(error) = true ->
+    s'.(error) = true ->
+    (run_basic_block bb s).(error) = (run_basic_block bb s').(error).
+Proof.
+  intros. induction bb.
+  - unfold run_basic_block. simpl.
+    rewrite H. rewrite H0. reflexivity.
+  -
+
+Theorem run_bb_maintains_error :
+  forall s,
+    s.(error) = true ->
+    forall bb,
+      (run_basic_block bb s).(error) = true.
+Proof.
+  intros. induction bb. auto.
+  simpl. apply run_instr_maintains_error.
+
 Admitted.
