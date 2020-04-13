@@ -279,6 +279,36 @@ Definition get_function_from_name (p : program_ty) (name : string) : option func
 Definition function_lookup (p : program_ty) (i : int64) : option function_ty :=
   p.(fun_table) i.
 
+Fixpoint run_function' (p : program_ty) (f : function_ty) (n : node_ty) (s : state) (fuel : nat) :
+                       (state * option function_ty) :=
+  match fuel with
+  | 0 => (set_exit_state s, None).
+  | S fuel' =>
+    let bb := fst n in
+    let s' := run_basic_block bb s in
+    let (s'', f') :=
+      match last bb Ret with
+      | Direct_Call name =>
+          match get_function_from_name p name with
+          | Some next_f => (s, f)
+          | None => (set_error_state s', None)
+          end
+      | Indirect_Call r =>
+          match function_lookup p (get_register s r) with
+          | Some next_f => (s f)
+          | None => (set_error_state s', None)
+          end
+      | _ => (s', f)
+      end in
+    match next_node (fst f) s n with
+    | Some n' => run_program' p cfg n' s'' fuel'
+    | None => s''
+    end
+  end.
+
+
+Fixpoint run_function (p : program_ty) (f : function_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
+
 (* TODO: Make sure we are handling errors correctly *)
 (* TODO: Allow read-only access to earlier stack values up to some constant *)
 (* TODO: Trapping is going to be really weird here *)
