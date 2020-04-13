@@ -20,14 +20,26 @@ Definition program_safety (p : program_ty) : Prop :=
   forall fuel,
     (run_program p fuel).(error) = false.
 
+Definition function_safety (p : program_ty) : Prop :=
+  forall fuel,
+    (run_function
+
 Theorem program_maintains_error :
   forall s,
     s.(error) = true ->
     forall p cfg n fuel,
       (run_program' p cfg n s fuel).(error) = true.
 Proof.
-  admit.
+  intros. induction fuel.
+  simpl. assumption.
+  simpl. destruct (next_node cfg s n).
+  - admit.
+  - admit.
 Admitted.
+
+Theorem verified_function :
+  forall f p,
+    verify_program p = true -> program_safety
 
 Theorem verified_program :
   forall p,
