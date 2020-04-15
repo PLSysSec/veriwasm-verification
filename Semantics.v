@@ -279,46 +279,40 @@ Definition get_function_from_name (p : program_ty) (name : string) : option func
 Definition function_lookup (p : program_ty) (i : int64) : option function_ty :=
   p.(fun_table) i.
 
-Fixpoint run_function' (p : program_ty) (f : function_ty) (n : node_ty) (s : state) (fuel : nat) :
-                       (state * option function_ty) :=
+(* NOTE: See run_function notes *)
+Fixpoint run_function' (p : program_ty) (f : function_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
   match fuel with
-  | 0 => (set_exit_state s, None)
+  | 0 => set_exit_state s
   | S fuel' =>
     let bb := fst n in
     let s' := run_basic_block bb s in
-    let (s'', f') :=
+    let s'' :=
       match last bb Ret with
       | Direct_Call name =>
           match get_function_from_name p name with
-          | Some next_f => (s, Some f)
-          | None => (set_error_state s', None)
+          | Some next_f => s
+          | None => set_error_state s'
           end
       | Indirect_Call r =>
           match function_lookup p (get_register s r) with
-          | Some next_f => (s, Some f)
-          | None => (set_error_state s', None)
+          | Some next_f => s
+          | None => set_error_state s'
           end
-      | _ => (s', f)
+      | _ => s'
       end in
     match next_node (fst f) s n with
-    | Some n' => run_function' f n' s'' fuel'
-    | None => (s'', None)
+    | Some n' => run_function' p f n' s'' fuel'
+    | None => s''
     end
   end.
 
-(* NOTE: Thsi is just an arbitrary number; it shouldn't really matter *)
-Definition function_fuel := 100000.
-
-Fixpoint run_function (p : program_ty) (f : function_ty) (s : state) : (state * option function_ty) :=
-  run_function' p f f.(start_node) s function_fuel.
-
-(* NOTE: This should be equivalent to run_program' *)
-Fixpoint run_program_function' (p : program_ty) (f : function_ty) (s : state) (fuel : nat) : state :=
-  let (s', f_opt) := run_function' p f s in
-  match f_opt with
-  | Some f' => run_program_function' p f' s'
-  | None => s'
-  end.
+(* NOTE: This is badly named; it really describes how a program would run if other function calls
+ * didn't take effect. *)
+(* NOTE: This function might not actually be useful, I think it's probably a stepping off point
+ * to talking about function-level safety though. *)
+Fixpoint run_function (p : program_ty) (f : function_ty) (s : state) (fuel : nat) :
+                      state :=
+  run_function' p f (fst f).(start_node) s fuel.
 
 (* TODO: Make sure we are handling errors correctly *)
 (* TODO: Allow read-only access to earlier stack values up to some constant *)
@@ -372,7 +366,3 @@ Definition start_state (p : program_ty) : state :=
 Definition run_program (p : program_ty) (fuel : nat) : state :=
   let main := fst p.(main) in
   run_program' p main main.(start_node) (start_state p) fuel.
-
-Definition run_program_function (p : program_ty) (fuel : nat) : state :=
-  let main := fst p.(main) in
-  run_program_function' p main (start_state p) fuel.
