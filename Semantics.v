@@ -282,7 +282,7 @@ Definition function_lookup (p : program_ty) (i : int64) : option function_ty :=
 Fixpoint run_function' (p : program_ty) (f : function_ty) (n : node_ty) (s : state) (fuel : nat) :
                        (state * option function_ty) :=
   match fuel with
-  | 0 => (set_exit_state s, None).
+  | 0 => (set_exit_state s, None)
   | S fuel' =>
     let bb := fst n in
     let s' := run_basic_block bb s in
@@ -290,24 +290,35 @@ Fixpoint run_function' (p : program_ty) (f : function_ty) (n : node_ty) (s : sta
       match last bb Ret with
       | Direct_Call name =>
           match get_function_from_name p name with
-          | Some next_f => (s, f)
+          | Some next_f => (s, Some f)
           | None => (set_error_state s', None)
           end
       | Indirect_Call r =>
           match function_lookup p (get_register s r) with
-          | Some next_f => (s f)
+          | Some next_f => (s, Some f)
           | None => (set_error_state s', None)
           end
       | _ => (s', f)
       end in
     match next_node (fst f) s n with
-    | Some n' => run_program' p cfg n' s'' fuel'
-    | None => s''
+    | Some n' => run_function' f n' s'' fuel'
+    | None => (s'', None)
     end
   end.
 
+(* NOTE: Thsi is just an arbitrary number; it shouldn't really matter *)
+Definition function_fuel := 100000.
 
-Fixpoint run_function (p : program_ty) (f : function_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
+Fixpoint run_function (p : program_ty) (f : function_ty) (s : state) : (state * option function_ty) :=
+  run_function' p f f.(start_node) s function_fuel.
+
+(* NOTE: This should be equivalent to run_program' *)
+Fixpoint run_program_function' (p : program_ty) (f : function_ty) (s : state) (fuel : nat) : state :=
+  let (s', f_opt) := run_function' p f s in
+  match f_opt with
+  | Some f' => run_program_function' p f' s'
+  | None => s'
+  end.
 
 (* TODO: Make sure we are handling errors correctly *)
 (* TODO: Allow read-only access to earlier stack values up to some constant *)
@@ -361,3 +372,7 @@ Definition start_state (p : program_ty) : state :=
 Definition run_program (p : program_ty) (fuel : nat) : state :=
   let main := fst p.(main) in
   run_program' p main main.(start_node) (start_state p) fuel.
+
+Definition run_program_function (p : program_ty) (fuel : nat) : state :=
+  let main := fst p.(main) in
+  run_program_function' p main (start_state p) fuel.
