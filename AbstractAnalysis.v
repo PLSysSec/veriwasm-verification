@@ -314,6 +314,9 @@ Definition run_worklist (f : function_ty) : abs_state :=
   let terminal_states := map state_map (get_terminal_nodes (fst f).(nodes) (fst f).(edges)) in
   fold_left meet_abs_state terminal_states abs_empty_state.
 
+Definition verify_function (f : function_ty) : bool :=
+  abs_error (run_worklist f).
+
 (* TODO: make sure abs_registers is complete *)
 Definition verify_program (p : program_ty) : bool :=
   let worklist_terminal_states := map run_worklist p.(fun_list) in
