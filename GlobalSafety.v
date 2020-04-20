@@ -72,10 +72,39 @@ Proof.
 
 
 
+Theorem function_safety_something :
+  forall p f n bb fun_name s fuel s' n',
+    well_formed_program p ->
+    verify_program p = true ->
+    In f p.(fun_list) ->
+    In n (fst f).(nodes) ->
+    bb = fst n ->
+    Direct_Call fun_name = last bb Ret ->
+    s' = run_program' p (fst f) n s fuel ->
+    s.(error) = false ->
+    s'.(error) = false ->
+    Some n' = next_node (fst f) s' n ->
+    (run_program' p (fst f) n' s' fuel).(error) = false.
+Proof.
 
 
 Theorem verified_program :
   forall p,
-    verify_program p = true -> program_safety p.
+    well_formed_program p ->
+    verify_program p = true ->
+    program_safety p.
 Proof.
-  intros. unfold program_safety. intros. unfold run_program. unfold run_program'.
+  intros. unfold program_safety. intros. unfold run_program.
+  unfold run_program'. induction fuel.
+  simpl. reflexivity. fold run_program'. fold run_program' in IHfuel.
+  destruct (next_node (fst (main p)) (start_state p) (start_node (fst (main p)))).
+  -
+    + destruct (last (fst (start_node (fst (main p)))) Ret). unfold run_basic_block.
+  -
+
+
+  induction p.(fun_list).
+  - unfold run_program'. induction fuel.
+    + simpl. reflexivity.
+    + destruct (next_node (fst (main p)) (start_state p) (start_node (fst (main p)))).
+      *

@@ -70,7 +70,7 @@ Inductive conditional :=
 *)
 | Counter_Register_Zero.
 
-Inductive instr_class := 
+Inductive instr_class :=
 | Heap_Read : register -> register -> register -> instr_class
 | Heap_Write : register -> register -> register -> instr_class
 | Heap_Check : register -> instr_class
@@ -229,3 +229,18 @@ Proof.
   - reflexivity.
 Qed.
 
+Fixpoint get_parent_nodes (n : node_ty) (es : list edge_ty) : list node_ty :=
+  match es with
+  | e :: es' => if node_ty_eqb n (snd (fst e))
+    then fst (fst e) :: get_parent_nodes n es'
+    else get_parent_nodes n es'
+  | _ => nil
+  end.
+
+Fixpoint get_child_nodes (n : node_ty) (es : list edge_ty) : list node_ty :=
+  match es with
+  | e :: es' => if node_ty_eqb n (fst (fst e))
+    then snd (fst e) :: get_child_nodes n es'
+    else get_child_nodes n es'
+  | _ => nil
+  end.

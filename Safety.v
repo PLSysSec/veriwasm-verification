@@ -456,3 +456,16 @@ Proof.
   apply H1 in H'. apply H0 in H'.
   rewrite IHbb in H'. assumption. assumption.
 Qed.
+
+Theorem bb_safety : (n : node_ty) (f : function_ty) (p : program_ty) : Prop :=
+  well_formed_program p ->
+  In n (fst f).(nodes) ->
+  In f p.(fun_l ist) ->
+  forall s n',
+    In n' get_parent_nodes n (fst f).(edges) ->
+  exists fuel,
+    run_program'
+
+Theorem verify_bb :
+  forall f bb,
+    s.(error)
