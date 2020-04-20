@@ -152,31 +152,43 @@ Definition run_conditional (c : conditional) (s : state) : bool :=
 | Counter_Register_Zero => Word.eq (get_register s rcx) (Word.repr 0)
 end.
 
-(* TODO: Implement Op *)
-(* TODO: Can we index the stack from registers (probably), or only constants *)
-Definition run_instr (inst : instr_class) (s : state) : state := 
-  match inst with 
-| Heap_Read r_dst r_src r_base => set_register s r_dst (read_heap s (Word.add (get_register s r_src) (get_register s r_base)))
-| Heap_Write r_dst r_val r_base => write_heap s (Word.add (get_register s r_dst) (get_register s r_base)) (get_register s r_val)
-| Heap_Check r => set_register s r (Word.modu (get_register s r) fourGB)
-| Call_Check r => s (*TODO: Figure out wtf to do.*)
-| Reg_Write r v => set_register s r (value_to_int64 s v)
-| Reg_Move r_dst r_src => set_register s r_dst (get_register s r_src)
-| Stack_Expand i => expand_stack s i
-| Stack_Contract i => contract_stack s i
-| Stack_Read r i => set_register s r (read_stack s i)
-| Stack_Write i r => write_stack s i (get_register s r)
-(*TODO: Make sure calls are right*)
-| Indirect_Call r => s
-| Direct_Call name => s
-| Branch c => s
-| Op op rs_dst rs_src => s
-| Ret => s
-end.
+(* TODO: Might return "trap" function name instead of None *)
+Definition function_lookup (p : program_ty) (i : int64) : option function_ty :=
+  p.(fun_table) i.
 
-Theorem run_instr_deterministic : forall init_st st st' i, 
-  run_instr i init_st = st ->
-  run_instr i init_st = st' ->
+(* TODO: Can we index the stack from registers (probably), or only constants *)
+(* TODO: Might have to check if the exit state is set before the error state *)
+Definition run_instr (p : program_ty) (inst : instr_class) (s : state) : state := 
+  match inst with 
+  | Heap_Read r_dst r_src r_base => set_register s r_dst (read_heap s (Word.add
+                                                                         (get_register s r_src)
+                                                                         (get_register s r_base)))
+  | Heap_Write r_dst r_val r_base => write_heap s (Word.add
+                                                     (get_register s r_dst)
+                                                     (get_register s r_base))
+                                                (get_register s r_val)
+  | Heap_Check r => set_register s r (Word.modu (get_register s r) fourGB)
+  | Call_Check r =>
+    match function_lookup p (get_register s r) with
+    | Some _ => s
+    | None => set_exit_state s
+    end
+  | Reg_Write r v => set_register s r (value_to_int64 s v)
+  | Reg_Move r_dst r_src => set_register s r_dst (get_register s r_src)
+  | Stack_Expand i => expand_stack s i
+  | Stack_Contract i => contract_stack s i
+  | Stack_Read r i => set_register s r (read_stack s i)
+  | Stack_Write i r => write_stack s i (get_register s r)
+  | Indirect_Call r => s
+  | Direct_Call name => s
+  | Branch c => s
+  | Op op rs_dst rs_src => s
+  | Ret => s
+  end.
+
+Theorem run_instr_deterministic : forall init_st st st' i p,
+  run_instr p i init_st = st ->
+  run_instr p i init_st = st' ->
   st = st'.
 Proof.
   intros init_st st st' i H1 H2. rewrite <- H1, H2. auto.
@@ -238,8 +250,8 @@ Proof.
   intros st i. induction i; eexists; auto.
 Qed.
 
-Definition run_basic_block (bb : basic_block) (s : state) : state :=
-  fold_left (fun s i => run_instr i s) bb s.
+Definition run_basic_block (p : program_ty) (bb : basic_block) (s : state) : state :=
+  fold_left (fun s i => run_instr p i s) bb s.
 
 (* TODO: Not sure why this is necessary, but it won't go through
  * if I try to inline node_ty_eqb_dec *)
@@ -275,17 +287,13 @@ Definition next_node (cfg : cfg_ty) (s : state) (n : node_ty) : option node_ty :
 Definition get_function_from_name (p : program_ty) (name : string) : option function_ty :=
   find (fun x => eqb (snd x) name) p.(fun_list).
 
-(* TODO: Might return "trap" function name instead of None *)
-Definition function_lookup (p : program_ty) (i : int64) : option function_ty :=
-  p.(fun_table) i.
-
 (* NOTE: See run_function notes *)
 Fixpoint run_function' (p : program_ty) (f : function_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
   match fuel with
   | 0 => set_exit_state s
   | S fuel' =>
     let bb := fst n in
-    let s' := run_basic_block bb s in
+    let s' := run_basic_block p bb s in
     let s'' :=
       match last bb Ret with
       | Direct_Call name =>
@@ -324,7 +332,7 @@ Fixpoint run_program' (p : program_ty) (cfg : cfg_ty) (n : node_ty) (s : state) 
   | 0 => set_exit_state s
   | S fuel' =>
     let bb := fst n in
-    let s' := run_basic_block bb s in
+    let s' := run_basic_block p bb s in
     let s'' := match last bb Ret with
                | Direct_Call name =>
                    match get_function_from_name p name with
@@ -366,3 +374,90 @@ Definition start_state (p : program_ty) : state :=
 Definition run_program (p : program_ty) (fuel : nat) : state :=
   let main := fst p.(main) in
   run_program' p main main.(start_node) (start_state p) fuel.
+
+Definition run_instr_from_stream (p : program_ty) (cfg : cfg_ty) (inst : instr_class) (s : state) : state :=
+  match inst with
+| Heap_Read r_dst r_src r_base => set_register s r_dst (read_heap s (Word.add (get_register s r_src) (get_register s r_base)))
+| Heap_Write r_dst r_val r_base => write_heap s (Word.add (get_register s r_dst) (get_register s r_base)) (get_register s r_val)
+| Heap_Check r => set_register s r (Word.modu (get_register s r) fourGB)
+| Call_Check r => s (*TODO: Figure out wtf to do.*)
+| Reg_Write r v => set_register s r (value_to_int64 s v)
+| Reg_Move r_dst r_src => set_register s r_dst (get_register s r_src)
+| Stack_Expand i => expand_stack s i
+| Stack_Contract i => contract_stack s i
+| Stack_Read r i => set_register s r (read_stack s i)
+| Stack_Write i r => write_stack s i (get_register s r)
+(*TODO: Make sure calls are right*)
+| Indirect_Call r => s
+| Direct_Call name => s
+| Branch c => s
+| Op op rs_dst rs_src => s
+| Ret => s
+end.
+
+Record instr_data := {
+  instr : instr_class;
+  cfg : cfg_ty;
+  node : node_ty;
+}.
+
+Definition gen_instr_data (cfg : cfg_ty) (n : node_ty) (is : list instr_class) : list instr_data :=
+  map (fun i => {| instr := i; cfg := cfg; node := n |}) is.
+
+Fixpoint get_instrs_till_terminal (cfg : cfg_ty) (n : node_ty) : list instr_data :=
+  let bb := fst n in
+  match last bb Ret with
+  | Branch _ => gen_instr_data cfg n bb
+  | Ret => gen_instr_data cfg n bb
+  | _ =>
+    (* NOTE: well-formedness should prevent find_edge from returning None *)
+    match find_edge cfg n Non_Branch with
+    | Some n' => (gen_instr_data cfg n bb) ++ (get_instrs_till_terminal cfg n')
+    | None => Non
+    end
+  end.
+
+(* NOTE: returns None if we error during lookup *)
+Definition get_next_instrs (p : program_ty) (cfg : cfg_ty) (n : node_ty) (i : instr_class)
+                           (s : state) : option (list instr_data) :=
+  (* NOTE: well-formedness should prevent any of these matches from retunring None *)
+  match i with
+  | Direct_Call name =>
+    match get_function_from_name p name with
+    | Some f => get_instrs_till_terminal (fst f) (fst f).(start_node)
+    | None => None
+    end
+  | Indirect_Call r =>
+    match function_lookup p (get_register s r) with
+    | Some f => get_instrs_till_terminal (fst f) (fst f).(start_node)
+    | None => None
+    end
+  | Branch c =>
+    match find_edge cfg n (if run_conditional c s then True_Branch else False_Branch) with
+    | Some n' => get_instrs_till_terminal cfg n'
+    | None => None
+    end
+  | _ => Some nil
+  end.
+
+Fixpoint run_program_stream' (p : program_ty) (istream : list instr_data) (s : state) (fuel : nat): state :=
+  if orb s.(error) s.(exit)
+  then s
+  else
+    match fuel with
+    | 0 => set_exit_state s
+    | S fuel' =>
+      match istream with
+      | nil => s
+      | i :: istream' =>
+        let s' = run_instr p i s in
+        match get_next_instrs p i.(cfg) i.(node) i.(instr) s' with
+        | Some next_instrs => run_program_stream' p (next_instrs ++ istream') s' fuel'
+        | None => set_error_state s'
+        end
+      end
+    end.
+
+Definition run_program_stream (p : program_ty) (fuel : nat) : state :=
+  let main := fst p.(main) in
+  run_program' p main main.(star)
