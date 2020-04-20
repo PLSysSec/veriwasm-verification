@@ -411,27 +411,28 @@ Proof.
 Qed.
 
 Theorem run_instr_maintains_error :
-  forall s,
+  forall p s,
     s.(error) = true ->
     forall i,
-      (run_instr i s).(error) = true.
+      (run_instr p i s).(error) = true.
 Proof.
   intros. induction i; auto.
-  simpl. rewrite contract_stack_never_changes_error with n s in H. assumption.
-Qed.
+  simpl. admit. (*rewrite contract_stack_never_changes_error with n s in H. assumption. *)
+Admitted.
 
 Theorem run_bb_any_state_error :
-  forall s bb,
+  forall p s bb,
     s.(error) = true ->
     forall s',
       s'.(error) = true ->
-      (run_basic_block bb s).(error) = (run_basic_block bb s').(error).
+      (run_basic_block p bb s).(error) = (run_basic_block p bb s').(error).
 Proof.
-  intros s bb H. induction bb.
+  intros s bb H. induction bb. admit.
+  (*
   - simpl. intros. rewrite H. rewrite H0. reflexivity.
   - intros. simpl. assert (IHbb' := IHbb).
-    specialize IHbb with (run_instr a s').
-    specialize IHbb' with (run_instr a s).
+    specialize IHbb with (run_instr p a s').
+    specialize IHbb' with (run_instr p a s).
     destruct IHbb.
     apply run_instr_maintains_error.
     apply H0.
@@ -439,33 +440,24 @@ Proof.
     apply run_instr_maintains_error.
     apply H.
     reflexivity.
-Qed.
+*)
+Admitted.
 
 Theorem run_bb_maintains_error :
-  forall s,
+  forall p s,
     s.(error) = true ->
     forall bb,
-      (run_basic_block bb s).(error) = true.
+      (run_basic_block p bb s).(error) = true.
 Proof.
   intros. induction bb. auto.
   simpl. pose proof run_bb_any_state_error as H0.
-  specialize H0 with (run_instr a s) bb s.
+  admit.
+  (*
+  specialize H0 with (run_instr p a s) bb s.
   pose proof run_instr_maintains_error as H1.
   specialize H1 with s a.
   assert (H' := H).
   apply H1 in H'. apply H0 in H'.
   rewrite IHbb in H'. assumption. assumption.
-Qed.
-
-Theorem bb_safety : (n : node_ty) (f : function_ty) (p : program_ty) : Prop :=
-  well_formed_program p ->
-  In n (fst f).(nodes) ->
-  In f p.(fun_l ist) ->
-  forall s n',
-    In n' get_parent_nodes n (fst f).(edges) ->
-  exists fuel,
-    run_program'
-
-Theorem verify_bb :
-  forall f bb,
-    s.(error)
+*)
+Admitted.
