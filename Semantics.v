@@ -404,51 +404,58 @@ Record instr_data := {
 Definition gen_instr_data (cfg : cfg_ty) (n : node_ty) (is : list instr_class) : list instr_data :=
   map (fun i => {| instr := i; cfg := cfg; node := n |}) is.
 
-Fixpoint get_instrs_till_terminal (cfg : cfg_ty) (n : node_ty) (fuel : nat): option (list instr_data) :=
+Inductive return_state : Set :=
+  | exit_return
+  | error_return
+  | normal_return.
+
+(* TODO: This should distinguish between error and exit states (because of fuel) *)
+Fixpoint get_instrs_till_terminal (cfg : cfg_ty) (n : node_ty) (fuel : nat) : (list instr_data * return_state) :=
   match fuel with
-  | 0 => None
+  | 0 => (nil, exit_return)
   | S fuel' =>
     let bb := fst n in
     match last bb Ret with
-    | Branch _ => Some (gen_instr_data cfg n bb)
-    | Ret => Some (gen_instr_data cfg n bb)
+    | Branch _ => ((gen_instr_data cfg n bb), normal_return)
+    | Ret => ((gen_instr_data cfg n bb), normal_return)
     | _ =>
       (* NOTE: well-formedness should prevent find_edge from returning None *)
       match find_edge cfg n Non_Branch with
       | Some n' =>
         match get_instrs_till_terminal cfg n' fuel' with
-        | Some instrs => Some ((gen_instr_data cfg n bb) ++ instrs)
-        | None => None
+        | (instrs, normal_return) => (((gen_instr_data cfg n bb) ++ instrs), normal_return)
+        | _ => (nil, error_return)
         end
-      | None => None
+      | None => (nil, error_return)
       end
     end
   end.
 
 (* NOTE: returns None if we error during lookup *)
+(* TODO: This should distinguish between error and exit states (because of fuel) *)
 Definition get_next_instrs (p : program_ty) (cfg : cfg_ty) (n : node_ty) (i : instr_class)
-                           (s : state) (fuel : nat) : option (list instr_data) :=
+                           (s : state) (fuel : nat) : (list instr_data * return_state) :=
   match fuel with
-  | 0 => None
-  | S fuel' => 
+  | 0 => (nil, exit_return)
+  | S fuel' =>
     (* NOTE: well-formedness should prevent any of these matches from retunring None *)
     match i with
     | Direct_Call name =>
       match get_function_from_name p name with
       | Some f => get_instrs_till_terminal (fst f) (fst f).(start_node) fuel
-      | None => None
+      | None => (nil, error_return)
       end
     | Indirect_Call r =>
       match function_lookup p (get_register s r) with
       | Some f => get_instrs_till_terminal (fst f) (fst f).(start_node) fuel
-      | None => None
+      | None => (nil, error_return)
       end
     | Branch c =>
       match find_edge cfg n (if run_conditional c s then True_Branch else False_Branch) with
       | Some n' => get_instrs_till_terminal cfg n' fuel
-      | None => None
+      | None => (nil, error_return)
       end
-    | _ => Some nil
+    | _ => (nil, normal_return)
     end
   end.
 
@@ -464,8 +471,9 @@ Fixpoint run_program_stream' (p : program_ty) (istream : list instr_data) (s : s
       | i :: istream' =>
         let s' := run_instr p i.(instr) s in
         match get_next_instrs p i.(cfg) i.(node) i.(instr) s' fuel with
-        | Some next_instrs => run_program_stream' p (next_instrs ++ istream') s' fuel'
-        | None => set_error_state s'
+        | (next_instrs, normal_return) => run_program_stream' p (next_instrs ++ istream') s' fuel'
+        | (_, exit_return) => set_exit_state s'
+        | (_, error_return) => set_error_state s'
         end
       end
     end.
@@ -473,6 +481,7 @@ Fixpoint run_program_stream' (p : program_ty) (istream : list instr_data) (s : s
 Definition run_program_stream (p : program_ty) (fuel : nat) : state :=
   let main := fst p.(main) in
   match get_instrs_till_terminal main main.(start_node) fuel with
-  | Some start_stream => run_program_stream' p start_stream (start_state p) fuel
-  | None => set_error_state (start_state p)
+  | (start_stream, normal_return) => run_program_stream' p start_stream (start_state p) fuel
+  | (_, exit_return) => set_exit_state (start_state p)
+  | (_, error_return) => set_error_state (start_state p)
   end.
