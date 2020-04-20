@@ -148,22 +148,6 @@ Fixpoint meet_abs_states (ss : list abs_state) : abs_state :=
   | _ => abs_bottom_state
   end.
 
-Fixpoint get_parent_nodes (n : node_ty) (es : list edge_ty) : list node_ty :=
-  match es with
-  | e :: es' => if node_ty_eqb n (snd (fst e))
-    then fst (fst e) :: get_parent_nodes n es'
-    else get_parent_nodes n es'
-  | _ => nil
-  end.
-
-Fixpoint get_child_nodes (n : node_ty) (es : list edge_ty) : list node_ty :=
-  match es with
-  | e :: es' => if node_ty_eqb n (fst (fst e))
-    then snd (fst e) :: get_child_nodes n es'
-    else get_child_nodes n es'
-  | _ => nil
-  end.
-
 Definition get_parent_states (n : node_ty) (m : total_map node_ty abs_state) (cfg : cfg_ty) : list abs_state :=
   map m (get_parent_nodes n cfg.(edges)).
 
