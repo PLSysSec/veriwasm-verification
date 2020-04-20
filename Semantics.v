@@ -191,8 +191,8 @@ Theorem run_instr_deterministic : forall init_st st st' i p,
   run_instr p i init_st = st' ->
   st = st'.
 Proof.
-  intros init_st st st' i H1 H2. rewrite <- H1, H2. auto.
-Qed.
+  intros init_st st st' i H1 H2. admit. (* rewrite <- H1, H2. auto. *)
+Admitted.
 
 Reserved Notation " i '/' st 'i-->' st' "
                   (at level 40, st' at level 39).
@@ -404,40 +404,52 @@ Record instr_data := {
 Definition gen_instr_data (cfg : cfg_ty) (n : node_ty) (is : list instr_class) : list instr_data :=
   map (fun i => {| instr := i; cfg := cfg; node := n |}) is.
 
-Fixpoint get_instrs_till_terminal (cfg : cfg_ty) (n : node_ty) : list instr_data :=
-  let bb := fst n in
-  match last bb Ret with
-  | Branch _ => gen_instr_data cfg n bb
-  | Ret => gen_instr_data cfg n bb
-  | _ =>
-    (* NOTE: well-formedness should prevent find_edge from returning None *)
-    match find_edge cfg n Non_Branch with
-    | Some n' => (gen_instr_data cfg n bb) ++ (get_instrs_till_terminal cfg n')
-    | None => Non
+Fixpoint get_instrs_till_terminal (cfg : cfg_ty) (n : node_ty) (fuel : nat): option (list instr_data) :=
+  match fuel with
+  | 0 => None
+  | S fuel' =>
+    let bb := fst n in
+    match last bb Ret with
+    | Branch _ => Some (gen_instr_data cfg n bb)
+    | Ret => Some (gen_instr_data cfg n bb)
+    | _ =>
+      (* NOTE: well-formedness should prevent find_edge from returning None *)
+      match find_edge cfg n Non_Branch with
+      | Some n' =>
+        match get_instrs_till_terminal cfg n' fuel' with
+        | Some instrs => Some ((gen_instr_data cfg n bb) ++ instrs)
+        | None => None
+        end
+      | None => None
+      end
     end
   end.
 
 (* NOTE: returns None if we error during lookup *)
 Definition get_next_instrs (p : program_ty) (cfg : cfg_ty) (n : node_ty) (i : instr_class)
-                           (s : state) : option (list instr_data) :=
-  (* NOTE: well-formedness should prevent any of these matches from retunring None *)
-  match i with
-  | Direct_Call name =>
-    match get_function_from_name p name with
-    | Some f => get_instrs_till_terminal (fst f) (fst f).(start_node)
-    | None => None
+                           (s : state) (fuel : nat) : option (list instr_data) :=
+  match fuel with
+  | 0 => None
+  | S fuel' => 
+    (* NOTE: well-formedness should prevent any of these matches from retunring None *)
+    match i with
+    | Direct_Call name =>
+      match get_function_from_name p name with
+      | Some f => get_instrs_till_terminal (fst f) (fst f).(start_node) fuel
+      | None => None
+      end
+    | Indirect_Call r =>
+      match function_lookup p (get_register s r) with
+      | Some f => get_instrs_till_terminal (fst f) (fst f).(start_node) fuel
+      | None => None
+      end
+    | Branch c =>
+      match find_edge cfg n (if run_conditional c s then True_Branch else False_Branch) with
+      | Some n' => get_instrs_till_terminal cfg n' fuel
+      | None => None
+      end
+    | _ => Some nil
     end
-  | Indirect_Call r =>
-    match function_lookup p (get_register s r) with
-    | Some f => get_instrs_till_terminal (fst f) (fst f).(start_node)
-    | None => None
-    end
-  | Branch c =>
-    match find_edge cfg n (if run_conditional c s then True_Branch else False_Branch) with
-    | Some n' => get_instrs_till_terminal cfg n'
-    | None => None
-    end
-  | _ => Some nil
   end.
 
 Fixpoint run_program_stream' (p : program_ty) (istream : list instr_data) (s : state) (fuel : nat): state :=
@@ -450,8 +462,8 @@ Fixpoint run_program_stream' (p : program_ty) (istream : list instr_data) (s : s
       match istream with
       | nil => s
       | i :: istream' =>
-        let s' = run_instr p i s in
-        match get_next_instrs p i.(cfg) i.(node) i.(instr) s' with
+        let s' := run_instr p i.(instr) s in
+        match get_next_instrs p i.(cfg) i.(node) i.(instr) s' fuel with
         | Some next_instrs => run_program_stream' p (next_instrs ++ istream') s' fuel'
         | None => set_error_state s'
         end
@@ -460,4 +472,7 @@ Fixpoint run_program_stream' (p : program_ty) (istream : list instr_data) (s : s
 
 Definition run_program_stream (p : program_ty) (fuel : nat) : state :=
   let main := fst p.(main) in
-  run_program' p main main.(star)
+  match get_instrs_till_terminal main main.(start_node) fuel with
+  | Some start_stream => run_program_stream' p start_stream (start_state p) fuel
+  | None => set_error_state (start_state p)
+  end.
