@@ -171,7 +171,7 @@ Definition run_instr (p : program_ty) (inst : instr_class) (s : state) : state :
   | Call_Check r =>
     match function_lookup p (get_register s r) with
     | Some _ => s
-    | None => set_exit_state s
+    | None => set_error_state s
     end
   | Reg_Write r v => set_register s r (value_to_int64 s v)
   | Reg_Move r_dst r_src => set_register s r_dst (get_register s r_src)
@@ -424,7 +424,8 @@ Fixpoint get_instrs_till_terminal (cfg : cfg_ty) (n : node_ty) (fuel : nat) : (l
       | Some n' =>
         match get_instrs_till_terminal cfg n' fuel' with
         | (instrs, normal_return) => (((gen_instr_data cfg n bb) ++ instrs), normal_return)
-        | _ => (nil, error_return)
+        | (_, exit_return) => ((gen_instr_data cfg n bb), exit_return)
+        | (_, error_return) => (nil, error_return)
         end
       | None => (nil, error_return)
       end
@@ -438,7 +439,7 @@ Definition get_next_instrs (p : program_ty) (cfg : cfg_ty) (n : node_ty) (i : in
   match fuel with
   | 0 => (nil, exit_return)
   | S fuel' =>
-    (* NOTE: well-formedness should prevent any of these matches from retunring None *)
+    (* NOTE: well-formedness should prevent any of these matches from returning None *)
     match i with
     | Direct_Call name =>
       match get_function_from_name p name with
@@ -459,29 +460,30 @@ Definition get_next_instrs (p : program_ty) (cfg : cfg_ty) (n : node_ty) (i : in
     end
   end.
 
-Fixpoint run_program_stream' (p : program_ty) (istream : list instr_data) (s : state) (fuel : nat): state :=
+Fixpoint run_program_stream' (p : program_ty) (istream : list instr_data) (s : state) (fuel : nat) :
+                             (state * list instr_data) :=
   if orb s.(error) s.(exit)
-  then s
+  then (s, istream)
   else
     match fuel with
-    | 0 => set_exit_state s
+    | 0 => (set_exit_state s, istream)
     | S fuel' =>
       match istream with
-      | nil => s
+      | nil => (s, nil)
       | i :: istream' =>
         let s' := run_instr p i.(instr) s in
         match get_next_instrs p i.(cfg) i.(node) i.(instr) s' fuel with
         | (next_instrs, normal_return) => run_program_stream' p (next_instrs ++ istream') s' fuel'
-        | (_, exit_return) => set_exit_state s'
-        | (_, error_return) => set_error_state s'
+        | (_, exit_return) => (set_exit_state s', istream')
+        | (_, error_return) => (set_error_state s', istream')
         end
       end
     end.
 
-Definition run_program_stream (p : program_ty) (fuel : nat) : state :=
+Definition run_program_stream (p : program_ty) (fuel : nat) : (state * list instr_data) :=
   let main := fst p.(main) in
   match get_instrs_till_terminal main main.(start_node) fuel with
   | (start_stream, normal_return) => run_program_stream' p start_stream (start_state p) fuel
-  | (_, exit_return) => set_exit_state (start_state p)
-  | (_, error_return) => set_error_state (start_state p)
+  | (_, exit_return) => (set_exit_state (start_state p), nil)
+  | (_, error_return) => (set_error_state (start_state p), nil)
   end.

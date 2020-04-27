@@ -122,9 +122,15 @@ Definition edges_in_nodes (cfg : cfg_ty) : Prop :=
     In ((compose fst fst) e) cfg.(nodes) /\
     In ((compose snd fst) e) cfg.(nodes).
 
+Definition non_empty_nodes (cfg : cfg_ty) : Prop :=
+  forall n,
+    In n cfg.(nodes) ->
+    fst n <> nil.
+
 (* TODO: This definition is incomplete *)
 Definition well_formed_cfg (cfg : cfg_ty) : Prop :=
-  unique_bb cfg /\ edges_in_nodes cfg.
+  unique_bb cfg /\ edges_in_nodes cfg /\ non_empty_nodes cfg /\
+  In cfg.(start_node) cfg.(nodes).
 
 Definition well_formed_fun (f : function_ty) : Prop :=
   well_formed_cfg (fst f).
@@ -150,6 +156,7 @@ Definition well_formed_program (p : program_ty) : Prop :=
   unique_fun_name p /\
   fun_list_table_contents p /\
   fun_table_list_contents p /\
+  In p.(main) p.(fun_list) /\
   forall f,
     In f p.(fun_list) -> well_formed_fun f.
 
