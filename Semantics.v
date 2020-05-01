@@ -471,11 +471,12 @@ Fixpoint run_program_stream' (p : program_ty) (istream : list instr_data) (s : s
       match istream with
       | nil => (s, nil)
       | i :: istream' =>
-        let s' := run_instr p i.(instr) s in
-        match get_next_instrs p i.(cfg) i.(node) i.(instr) s' fuel with
-        | (next_instrs, normal_return) => run_program_stream' p (next_instrs ++ istream') s' fuel'
-        | (_, exit_return) => (set_exit_state s', istream')
-        | (_, error_return) => (set_error_state s', istream')
+        match get_next_instrs p i.(cfg) i.(node) i.(instr) s fuel with
+        | (next_instrs, normal_return) =>
+          let s' := run_instr p i.(instr) s in
+          run_program_stream' p (next_instrs ++ istream') s' fuel'
+        | (_, exit_return) => (set_exit_state s, istream)
+        | (_, error_return) => (set_error_state s, istream)
         end
       end
     end.
