@@ -2,6 +2,8 @@ Require Import Coq.Lists.List.
 Require Import Coq.Lists.ListSet.
 Require Import Coq.Strings.String.
 Require Import BinInt.
+Require Import Datatypes.
+Require Import Nat.
 Require Import VerifiedVerifier.Machine.
 Require Import VerifiedVerifier.Bits.
 Require Import VerifiedVerifier.Maps.
@@ -158,27 +160,39 @@ Definition function_lookup (p : program_ty) (i : int64) : option function_ty :=
 
 (* TODO: Can we index the stack from registers (probably), or only constants *)
 (* TODO: Might have to check if the exit state is set before the error state *)
-Definition run_instr (p : program_ty) (inst : instr_class) (s : state) : state := 
-  match inst with 
-  | Heap_Read r_dst r_src r_base => set_register s r_dst (read_heap s (Word.add
-                                                                         (get_register s r_src)
-                                                                         (get_register s r_base)))
-  | Heap_Write r_dst r_val r_base => write_heap s (Word.add
-                                                     (get_register s r_dst)
-                                                     (get_register s r_base))
-                                                (get_register s r_val)
+Definition run_instr (p : program_ty) (inst : instr_class) (s : state) : state :=
+  match inst with
+  | Heap_Read r_dst r_src r_base =>
+    let dst_addr := (Word.add (get_register s r_src) (get_register s r_base)) in
+    if Word.lt dst_addr fourGB
+    then set_register s r_dst (read_heap s dst_addr)
+    else set_error_state s
+  | Heap_Write r_dst r_val r_base =>
+    let dst_addr := (Word.add (get_register s r_dst) (get_register s r_base)) in
+    if Word.lt dst_addr fourGB
+    then write_heap s dst_addr (get_register s r_val)
+    else set_error_state s
   | Heap_Check r => set_register s r (Word.modu (get_register s r) fourGB)
   | Call_Check r =>
     match function_lookup p (get_register s r) with
     | Some _ => s
-    | None => set_error_state s
+    | None => set_exit_state s
     end
   | Reg_Write r v => set_register s r (value_to_int64 s v)
   | Reg_Move r_dst r_src => set_register s r_dst (get_register s r_src)
   | Stack_Expand i => expand_stack s i
-  | Stack_Contract i => contract_stack s i
-  | Stack_Read r i => set_register s r (read_stack s i)
-  | Stack_Write i r => write_stack s i (get_register s r)
+  | Stack_Contract i =>
+    if ltb (length s.(stack)) i
+    then contract_stack s i
+    else set_error_state s
+  | Stack_Read r i =>
+    if ltb (length s.(stack)) i
+    then set_register s r (read_stack s i)
+    else set_error_state s
+  | Stack_Write i r =>
+    if ltb (length s.(stack)) i
+    then write_stack s i (get_register s r)
+    else set_error_state s
   | Indirect_Call r => s
   | Direct_Call name => s
   | Branch c => s
@@ -196,7 +210,7 @@ Admitted.
 
 Reserved Notation " i '/' st 'i-->' st' "
                   (at level 40, st' at level 39).
-Inductive instr_class_istep : instr_class -> state -> state -> Prop := 
+Inductive instr_class_istep : instr_class -> state -> state -> Prop :=
 | I_Heap_Read: forall st r_base r_src r_dst,
     Heap_Read r_dst r_src r_base / st i--> set_register st r_dst (read_heap st (Word.add (get_register st r_src) (get_register st r_base)))
 | I_Heap_Write: forall st r_base r_val r_dst,
@@ -285,7 +299,7 @@ Definition next_node (cfg : cfg_ty) (s : state) (n : node_ty) : option node_ty :
   end.
 
 Definition get_function_from_name (p : program_ty) (name : string) : option function_ty :=
-  find (fun x => eqb (snd x) name) p.(fun_list).
+  find (fun x => String.eqb (snd x) name) p.(fun_list).
 
 (* NOTE: See run_function notes *)
 Fixpoint run_function' (p : program_ty) (f : function_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
