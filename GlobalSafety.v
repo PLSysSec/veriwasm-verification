@@ -58,32 +58,6 @@ Definition function_safety (f : function_ty) : Prop :=
     In n cfg.(nodes) ->
     (run_program' p cfg n s fuel).(error) = false.
 
-Theorem verified_function :
-  forall f,
-    verify_function f = true ->
-    function_safety f.
-Proof.
-  admit.
-Admitted.
-
-(* NOTE: This probably isn't the correct formulation *)
-(*
-Theorem function_safety_implies_program_safety :
-  forall p f,
-    well_formed_program p ->
-    In f p.(fun_list) ->
-    function_safety f ->
-    program_safety p.
-Proof.
-  unfold program_safety. intros. unfold run_program. unfold run_program'.
-*)
-
-(* Theorems TODO list:
-   - cf_check implies that indirect calls are safe
-   - program well-formedness implies getting the next instructions is safe
-*)
-
-
 Theorem well_formed_find_edge_ret :
   forall cfg n p f ,
     well_formed_program p ->
@@ -138,7 +112,7 @@ Theorem verified_function_lookup :
       s.(error) = false ->
       Some hd_i = hd_error istream ->
       hd_i.(instr) = Indirect_Call r ->
-      (fst (run_program_stream p (S fuel))).(error) = false.
+      (run_instr p hd_i.(instr) s).(error) = false.
 Proof.
   admit.
 Admitted.
@@ -147,12 +121,83 @@ Admitted.
 Theorem verified_function_call :
   forall p,
     well_formed_program p ->
+    verify_program p = true ->
     forall s istream fuel hd_i f_name,
       (s, istream) = run_program_stream p fuel ->
       s.(error) = false ->
       Some hd_i = hd_error istream ->
       hd_i.(instr) = Direct_Call f_name ->
-      (fst (run_program_stream p (S fuel))).(error) = false.
+      (run_instr p hd_i.(instr) s).(error) = false.
+Proof.
+  admit.
+Admitted.
+
+Theorem verified_heap_read :
+  forall p,
+    well_formed_program p ->
+    verify_program p = true ->
+    forall s istream fuel hd_i r_dst r_src r_base,
+      (s, istream) = run_program_stream p fuel ->
+      s.(error) = false ->
+      Some hd_i = hd_error istream ->
+      hd_i.(instr) = Heap_Read r_dst r_src r_base ->
+      (run_instr p hd_i.(instr) s).(error) = false.
+Proof.
+  admit.
+Admitted.
+
+Theorem verified_heap_write :
+  forall p,
+    well_formed_program p ->
+    verify_program p = true ->
+    forall s istream fuel hd_i r_dst r_val r_base,
+      (s, istream) = run_program_stream p fuel ->
+      s.(error) = false ->
+      Some hd_i = hd_error istream ->
+      hd_i.(instr) = Heap_Write r_dst r_val r_base ->
+      (run_instr p hd_i.(instr) s).(error) = false.
+Proof.
+  admit.
+Admitted.
+Proof.
+
+Theorem verified_stack_contract :
+  forall p,
+    well_formed_program p ->
+    verify_program p = true ->
+    forall s istream fuel hd_i i,
+      (s, istream) = run_program_stream p fuel ->
+      s.(error) = false ->
+      Some hd_i = hd_error istream ->
+      hd_i.(instr) = Stack_Contract i ->
+      (run_instr p hd_i.(instr) s).(error) = false.
+  admit.
+Admitted.
+
+Theorem verified_stack_read :
+  forall p,
+    well_formed_program p ->
+    verify_program p = true ->
+    forall s istream fuel hd_i r i,
+      (s, istream) = run_program_stream p fuel ->
+      s.(error) = false ->
+      Some hd_i = hd_error istream ->
+      hd_i.(instr) = Stack_Read r i ->
+      (run_instr p hd_i.(instr) s).(error) = false.
+Proof.
+  admit.
+Admitted.
+
+Theorem verified_stack_write :
+  forall p,
+    well_formed_program p ->
+    verify_program p = true ->
+    forall s istream fuel hd_i i r,
+      (s, istream) = run_program_stream p fuel ->
+      s.(error) = false ->
+      Some hd_i = hd_error istream ->
+      hd_i.(instr) = Stack_Write i r ->
+      (run_instr p hd_i.(instr) s).(error) = false.
 Proof.
   admit.
 Admitted.
@@ -240,18 +285,82 @@ Proof.
   intros. case c; auto.
 Qed.
 
+Lemma tuple_eq :
+  forall (x : (state * list instr_data)),
+    (fst x, snd x) = x.
+Proof.
+  intros. destruct x. simpl. auto.
+Qed.
+
+(* TODO: Generalize these *)
+Lemma tuple_eq' :
+  forall (x y : (state * list instr_data)),
+    x = y ->
+    fst x = fst y /\ snd x = snd y.
+Proof.
+  intros.
+  pose proof surjective_pairing as H1. specialize H1 with state (list instr_data) x.
+  rewrite H1 in H. destruct y. inversion H. rewrite H2. rewrite H3.
+  unfold fst. unfold snd. auto.
+Qed.
+
+Lemma tuple_split :
+  forall (a : state) (b : list instr_data) (x : (state * list instr_data)),
+    (a, b) = x ->
+    a = fst x /\ b = snd x.
+Proof.
+  intros. destruct x. pose proof tuple_eq'.
+  specialize H0 with (a, b) (s, l). apply H0 in H. inversion H.
+  split; auto.
+Qed.
+
+Lemma tuple_ret_eq' :
+  forall (x y : (list instr_data * return_state)),
+    x = y ->
+    fst x = fst y /\ snd x = snd y.
+Proof.
+  intros.
+  pose proof surjective_pairing as H1. specialize H1 with (list instr_data) return_state x.
+  rewrite H1 in H. destruct y. inversion H. rewrite H2. rewrite H3.
+  unfold fst. unfold snd. auto.
+Qed.
+
+Lemma tuple_ret_split :
+  forall (a : list instr_data) (b : return_state) (x : (list instr_data * return_state)),
+    (a, b) = x ->
+    a = fst x /\ b = snd x.
+Proof.
+  intros. destruct x. pose proof tuple_ret_eq'.
+  specialize H0 with (a, b) (l, r). apply H0 in H. inversion H.
+  split; auto.
+Qed.
+
+Lemma prog_stream_eq :
+  forall p fuel start_stream,
+    snd (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) fuel) = normal_return ->
+    fst (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) fuel) = start_stream ->
+    run_program_stream p fuel = run_program_stream' p start_stream (start_state p) fuel.
+Proof.
+  intros. unfold run_program_stream.
+  remember (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) fuel) as g.
+  destruct g. pose proof tuple_ret_split.
+  specialize H1 with l r (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) fuel).
+  apply H1 in Heqg. inversion Heqg. simpl in H. simpl in H0. rewrite H. rewrite H0. reflexivity.
+Qed.
+
 Theorem function_safety_run_other :
   forall p s istream fuel start_stream s',
     well_formed_program p ->
     verify_program p = true ->
-    (snd (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) (S fuel))) = normal_return ->
-    start_stream = (fst (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) (S fuel))) ->
+    (snd (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) fuel)) = normal_return ->
+    start_stream = (fst (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) fuel)) ->
     (s, istream) = run_program_stream' p start_stream (start_state p) fuel ->
     s.(error) = false ->
     s' = fst (run_program_stream' p start_stream (start_state p) (S fuel)) ->
     s'.(error) = false.
 Proof.
-  intros. pose proof run_program_stream_equiv as Hequiv.
+  intros. assert (Hwell := H).
+  pose proof run_program_stream_equiv as Hequiv.
   specialize Hequiv with p start_stream (start_state p) fuel s istream.
   apply Hequiv in H.
   - rewrite H in H5. rewrite H5. induction istream.
@@ -278,9 +387,39 @@ Proof.
       rewrite Hexit.
       pose proof if_eq as Hif. specialize Hif with bool (error s'' || exit s'')%bool (error s'').
       rewrite Hif. rewrite Heqs''.
-      unfold run_instr. destruct (instr a); auto.
-      * admit.
-      * admit.
+      remember (instr a) as instr_a.
+      destruct instr_a; auto.
+      * pose proof verified_heap_read as Hinstr.
+        specialize Hinstr with p s (a :: istream) fuel a r r0 r1.
+        assert (instr a = Heap_Read r r0 r1). symmetry in Heqinstr_a. assumption.
+        rewrite H6 in Hinstr. apply Hinstr; auto. pose proof prog_stream_eq.
+        specialize H7 with p fuel start_stream.
+        symmetry in H7. rewrite H7 in H3. assumption. assumption. symmetry in H2. assumption.
+      * pose proof verified_heap_write as Hinstr.
+        specialize Hinstr with p s (a :: istream) fuel a r r0 r1.
+        assert (instr a = Heap_Write r r0 r1). symmetry in Heqinstr_a. assumption.
+        rewrite H6 in Hinstr. apply Hinstr; auto. pose proof prog_stream_eq.
+        specialize H7 with p fuel start_stream.
+        symmetry in H7. rewrite H7 in H3. assumption. assumption. symmetry in H2. assumption.
+      * simpl. destruct (function_lookup p (get_register s r)); auto.
+      * pose proof verified_stack_contract as Hinstr.
+        specialize Hinstr with p s (a :: istream) fuel a n.
+        assert (instr a = Stack_Contract n). symmetry in Heqinstr_a. assumption.
+        rewrite H6 in Hinstr. apply Hinstr; auto. pose proof prog_stream_eq.
+        specialize H7 with p fuel start_stream.
+        symmetry in H7. rewrite H7 in H3. assumption. assumption. symmetry in H2. assumption.
+      * pose proof verified_stack_read as Hinstr.
+        specialize Hinstr with p s (a :: istream) fuel a r n.
+        assert (instr a = Stack_Read r n). symmetry in Heqinstr_a. assumption.
+        rewrite H6 in Hinstr. apply Hinstr; auto. pose proof prog_stream_eq.
+        specialize H7 with p fuel start_stream.
+        symmetry in H7. rewrite H7 in H3. assumption. assumption. symmetry in H2. assumption.
+      * pose proof verified_stack_write as Hinstr.
+        specialize Hinstr with p s (a :: istream) fuel a n r.
+        assert (instr a = Stack_Write n r). symmetry in Heqinstr_a. assumption.
+        rewrite H6 in Hinstr. apply Hinstr; auto. pose proof prog_stream_eq.
+        specialize H7 with p fuel start_stream.
+        symmetry in H7. rewrite H7 in H3. assumption. assumption. symmetry in H2. assumption.
   - assumption.
 Admitted.
 
@@ -291,24 +430,6 @@ Theorem get_instrs_till_terminal_ret :
 Proof.
   admit.
 Admitted.
-
-Lemma tuple_eq :
-  forall (x : (state * list instr_data)),
-    (fst x, snd x) = x.
-Proof.
-  intros. destruct x. simpl. auto.
-Qed.
-
-Lemma tuple_eq' :
-  forall (x y : (state * list instr_data)),
-    x = y ->
-    fst x = fst y /\ snd x = snd y.
-Proof.
-  intros.
-  pose proof surjective_pairing as H1. specialize H1 with state (list instr_data) x.
-  rewrite H1 in H. destruct y. inversion H. rewrite H2. rewrite H3.
-  unfold fst. unfold snd. auto.
-Qed.
 
 Theorem verified_program :
   forall p,
@@ -326,13 +447,14 @@ Proof.
   specialize H4 with (main p). apply H4 in H3. unfold well_formed_fun in H3.
   unfold well_formed_cfg in H3. destruct H3. destruct H5. destruct H6. assumption.
 
-  destruct (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) fuel).
+
+  destruct (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) fuel) eqn:Htest.
   (*
   assert (l = fst (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) fuel)). admit.
   assert (r = snd (get_instrs_till_terminal (fst (main p)) (start_node (fst (main p))) fuel)). admit.
   *)
   (* TODO: I don't know why the context forgets this information *)
-  unfold snd in H1. induction r. auto. admit.
+  unfold snd in H1. destruct r. auto. contradiction.
   induction fuel.
   simpl. reflexivity.
   pose proof function_safety_run_other as Hstream'.
@@ -350,21 +472,6 @@ Proof.
   - pose proof tuple_eq' as Htup'. specialize Htup' with s' (run_program_stream' p l (start_state p) (S fuel)).
     apply Htup' in Heqs'. inversion Heqs'. assumption.
 Admitted.
-
-Theorem function_safety_independent :
-  forall p f n bb fun_name s fuel s' n',
-    well_formed_program p ->
-    verify_program p = true ->
-    In f p.(fun_list) ->
-    In n (fst f).(nodes) ->
-    bb = fst n ->
-    Direct_Call fun_name = last bb Ret ->
-    s' = run_program' p (fst f) n s fuel ->
-    s.(error) = false ->
-    s'.(error) = false ->
-    Some n' = next_node (fst f) s' n ->
-    (run_program' p (fst f) n' s' fuel).(error) = false.
-Proof.
 
 
 (* NOTE: old version *)
