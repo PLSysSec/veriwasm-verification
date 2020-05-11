@@ -9,11 +9,317 @@ Require Import VerifiedVerifier.AbstractAnalysis.
 Require Import VerifiedVerifier.Semantics.
 Require Import Lia.
 
-Definition is_mem_bounded (s : state) (r_src : register) (r_base : register) : bool :=
-  andb (Word.eq (get_register s r_base) s.(heap_base)) (Word.lt (get_register s r_src) fourGB).
+Definition is_heap_base_data (s : state) (i : data_ty) : BinarySet :=
+if (eqb i s.(heap_base)) then bottom else top.
+
+Definition is_heap_bounded_data (s : state) (i : data_ty) : BinarySet :=
+if (ltb i (above_heap_guard_size s)) then bottom else top.
+
+Definition is_cf_bounded_data (s : state) (i : data_ty) : BinarySet :=
+if (ltb i (List.length (program s))) then bottom else top.
+
+Definition is_above_stack_bounded_data (s : state) (i : data_ty) : BinarySet :=
+if (eqb i (above_stack_guard_size s)) then bottom else top.
+
+Definition is_below_stack_bounded_data (s : state) (i : data_ty) : BinarySet :=
+if (eqb i (below_stack_guard_size s)) then bottom else top.
+
+Definition abstractify_data (s : state) (i : data_ty) : info :=
+{| is_heap_base := is_heap_base_data s i;
+   heap_bounded := is_heap_bounded_data s i;
+   cf_bounded := is_cf_bounded_data s i; 
+   above_stack_bounded := is_above_stack_bounded_data s i;
+   below_stack_bounded := is_below_stack_bounded_data s i;
+|}.
+
+Definition abstractify_list (s : state) (l : list data_ty) : list info :=
+  map (abstractify_data s) l.
+
+Definition abstractify_registers (s : state) (f : registers_ty) : abs_registers_ty :=
+  fun r => (abstractify_data s (f r)).
+
+Definition abstractify (s : state) : abs_state :=
+{| abs_regs := abstractify_registers s s.(regs);
+   abs_stack := abstractify_list s s.(stack);
+   abs_lifted_state := sub_state;
+   abs_heap_base := (heap_base s);
+   abs_below_stack_guard_size := (below_stack_guard_size s);
+   abs_above_stack_guard_size := (above_stack_guard_size s);
+   abs_above_heap_guard_size := (above_heap_guard_size s); 
+|}.
+
+Lemma BinarySet_eqb_eq: forall a b,
+  BinarySet_eqb a b = true <-> a = b.
+Proof.
+  intros. split.
+  - intros. unfold BinarySet_eqb in H. destruct (BinarySet_eq_dec a b) eqn:H'; auto; inversion H.
+  - intros. unfold BinarySet_eqb. inversion H. destruct (BinarySet_eq_dec b b); auto; inversion H.
+Qed.
+
+Lemma leq_abs_state_is_heap_base: forall abs_st abs_st' r,
+  leq_abs_state abs_st' abs_st ->
+  is_heap_base (get_register_info abs_st r) = bottom ->
+  is_heap_base (get_register_info abs_st' r) = bottom.
+Proof.
+  intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
+  specialize H6 with r. inversion H6. rewrite H11. auto.
+  subst. inversion H9. auto. rewrite H in H9. inversion H9. auto.
+Qed.
+
+Lemma leq_abs_state_heap_bounded: forall abs_st abs_st' r,
+  leq_abs_state abs_st' abs_st ->
+  heap_bounded (get_register_info abs_st r) = bottom ->
+  heap_bounded (get_register_info abs_st' r) = bottom.
+Proof.
+  intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
+  specialize H6 with r. inversion H6. rewrite H11. auto.
+  subst. inversion H10. auto. rewrite H in H10. inversion H10. auto.
+Qed.
+
+Lemma leq_abs_state_cf_bounded: forall abs_st abs_st' r,
+  leq_abs_state abs_st' abs_st ->
+  cf_bounded (get_register_info abs_st r) = bottom ->
+  cf_bounded (get_register_info abs_st' r) = bottom.
+Proof.
+  intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
+  specialize H6 with r. inversion H6. rewrite H11. auto.
+  subst. inversion H11. auto. rewrite H in H11. inversion H11. auto.
+Qed.
+
+(*
+Lemma leq_abs_state_eq_above_stack_guard: forall abs_st abs_st' i,
+  leq_abs_state abs_st' abs_st ->
+  (abs_above_stack_guard_size abs_st) = i ->
+  (abs_above_stack_guard_size abs_st') = i.
+Proof.
+  intros. inversion H. subst. auto.
+  Admitted.
+*)
+
+Lemma if_thn_true: forall (cond : bool),
+  (if cond then bottom else top) = bottom ->
+  cond = true.
+Proof.
+  intros. destruct cond; auto; inversion H.
+Qed.
+
+Definition first_block f :=
+match (V f) with
+| nil => nil
+| h :: t => h
+end.
+
+Definition run_function p f :=
+(first_block f, start_state p).
+
+Lemma leq_abs_state_verifies : forall i abs_st abs_st',
+  leq_abs_state abs_st' abs_st ->
+  instr_class_verifier i abs_st = true ->
+  instr_class_verifier i abs_st' = true.
+Proof.
+  intros i abs_st abs_st' Hleq Hv. inversion Hleq. auto. rewrite <- H0 in Hv. inversion Hv.
+  destruct i eqn:Hi; unfold instr_class_verifier in *; rewrite H0 in Hv; rewrite H; eauto.
+  - apply andb_prop in Hv as [Hbase Hv].
+    apply andb_prop in Hv as [Hindex Hoffset]. apply BinarySet_eqb_eq in Hbase. apply BinarySet_eqb_eq in Hindex.
+    apply BinarySet_eqb_eq in Hoffset. repeat (apply andb_true_intro; split; try (apply BinarySet_eqb_eq)).
+    + eapply leq_abs_state_is_heap_base. apply Hleq. auto.
+    + eapply leq_abs_state_heap_bounded. apply Hleq. auto.
+    + eapply leq_abs_state_heap_bounded. apply Hleq. auto.
+  - apply andb_prop in Hv as [Hbase Hv].
+    apply andb_prop in Hv as [Hindex Hoffset]. apply BinarySet_eqb_eq in Hbase. apply BinarySet_eqb_eq in Hindex.
+    apply BinarySet_eqb_eq in Hoffset. repeat (apply andb_true_intro; split; try (apply BinarySet_eqb_eq)).
+    + eapply leq_abs_state_is_heap_base. apply Hleq. auto.
+    + eapply leq_abs_state_heap_bounded. apply Hleq. auto.
+    + eapply leq_abs_state_heap_bounded. apply Hleq. auto.
+  - apply andb_prop in Hv as [Hr Hrdi]. apply BinarySet_eqb_eq in Hr. apply BinarySet_eqb_eq in Hrdi.
+    apply andb_true_intro; split; apply BinarySet_eqb_eq.
+    * eapply leq_abs_state_cf_bounded. apply Hleq. apply Hr.
+    * eapply leq_abs_state_is_heap_base. apply Hleq. apply Hrdi.
+  - apply BinarySet_eqb_eq in Hv. apply BinarySet_eqb_eq. eapply leq_abs_state_is_heap_base.
+    apply Hleq. apply Hv.
+Qed.
+
+Lemma unfold_binaryset_eqb: forall b1 b2 b3 b4,
+  (BinarySet_eqb b1 b2 && BinarySet_eqb b3 b4)%bool = true ->
+  b1 = b2 /\ b3 = b4.
+Proof.
+  intros. apply andb_prop in H as [H1 H2].
+  apply BinarySet_eqb_eq in H1. apply BinarySet_eqb_eq in H2. auto.
+Qed.
+
+Lemma unfold_binaryset_eqb_3: forall b1 b2 b3 b4 b5 b6,
+  (BinarySet_eqb b1 b2 && BinarySet_eqb b3 b4 && BinarySet_eqb b5 b6)%bool = true ->
+  b1 = b2 /\ b3 = b4 /\ b5 = b6.
+Proof.
+  intros. apply andb_prop in H as [H1 H2]. apply unfold_binaryset_eqb in H1 as [H1 H1'].
+  apply BinarySet_eqb_eq in H2. auto.
+Qed.
+
+Lemma verified_impl_istep : forall i is st,
+  instr_class_verifier i (abstractify st) = true ->
+  exists is' st', (i :: is) / st i--> is' / st'.
+Proof.
+  intros. destruct i eqn:Hi ; unfold instr_class_verifier in H; simpl in H.
+  - apply andb_prop in H as [Hbase Hv]. apply andb_prop in Hv as [Hindex Hoffset].
+    apply BinarySet_eqb_eq in Hbase. apply BinarySet_eqb_eq in Hindex.
+    apply BinarySet_eqb_eq in Hoffset.
+    remember ((get_register st r2) + (get_register st r1) + (get_register st r0)) as index.
+    remember (ltb index ((heap_base st) + (max_heap_size st))) as valid_index.
+    destruct valid_index.
+    + apply eq_sym, PeanoNat.Nat.ltb_lt in Heqvalid_index. repeat eexists. eapply I_Heap_Read.
+      apply Heqindex. unfold is_heap_base, get_register_info, abstractify in *. simpl in *.
+      unfold is_heap_base_data, is_heap_bounded_data in *.
+      apply if_thn_true, EqNat.beq_nat_true in Hbase. Search (_ <? _).
+      apply if_thn_true, PeanoNat.Nat.ltb_lt in Hindex. apply if_thn_true, PeanoNat.Nat.ltb_lt in Hoffset.
+      unfold get_register in *. lia. auto.
+    + Search (_ <? _). apply eq_sym, PeanoNat.Nat.ltb_nlt in Heqvalid_index. repeat eexists. eapply I_Heap_Read_Guard.
+      apply Heqindex. lia. unfold is_heap_base, get_register_info, abstractify in *. simpl in *.
+      unfold is_heap_base_data, is_heap_bounded_data in *.
+      apply if_thn_true, EqNat.beq_nat_true in Hbase. Search (_ <? _).
+      apply if_thn_true, PeanoNat.Nat.ltb_lt in Hindex. apply if_thn_true, PeanoNat.Nat.ltb_lt in Hoffset.
+      unfold get_register in *. pose proof (heap_size_eq_guard st) as H. lia.
+  - apply andb_prop in H as [Hbase Hv]. apply andb_prop in Hv as [Hindex Hoffset].
+    apply BinarySet_eqb_eq in Hbase. apply BinarySet_eqb_eq in Hindex.
+    apply BinarySet_eqb_eq in Hoffset. 
+    remember ((get_register st r) + (get_register st r0) + (get_register st r1)) as index.
+    remember (ltb index ((heap_base st) + (max_heap_size st))) as valid_index.
+    destruct valid_index.
+    + apply eq_sym, PeanoNat.Nat.ltb_lt in Heqvalid_index. repeat eexists. eapply I_Heap_Write.
+      auto. unfold is_heap_base, get_register_info, abstractify in *. simpl in *.
+      unfold is_heap_base_data, is_heap_bounded_data in *.
+      apply if_thn_true, EqNat.beq_nat_true in Hbase. Search (_ <? _).
+      apply if_thn_true, PeanoNat.Nat.ltb_lt in Hindex. apply if_thn_true, PeanoNat.Nat.ltb_lt in Hoffset.
+      unfold get_register in *. lia. lia.
+    + Search (_ <? _). apply eq_sym, PeanoNat.Nat.ltb_nlt in Heqvalid_index. repeat eexists. eapply I_Heap_Write_Guard.
+      auto. lia. unfold is_heap_base, get_register_info, abstractify in *. simpl in *.
+      unfold is_heap_base_data, is_heap_bounded_data in *.
+      apply if_thn_true, EqNat.beq_nat_true in Hbase. Search (_ <? _).
+      apply if_thn_true, PeanoNat.Nat.ltb_lt in Hindex. apply if_thn_true, PeanoNat.Nat.ltb_lt in Hoffset.
+      unfold get_register in *. pose proof (heap_size_eq_guard st) as H. lia.
+  - repeat eexists. apply I_Heap_Check.
+  - destruct (get_register st r <? List.length (program st)) eqn:valid_function.
+    + repeat eexists. eapply I_Call_Check. apply PeanoNat.Nat.ltb_lt. auto.
+    + repeat eexists. eapply I_Call_Check_Bad. apply PeanoNat.Nat.ltb_nlt in valid_function. apply Compare_dec.not_lt. auto.
+  - repeat eexists. apply I_Reg_Move.
+  - repeat eexists. apply I_Reg_Write.
+  - repeat eexists. apply I_Stack_Expand_Static.
+  - destruct (n + (stack_size st) <=? (max_stack_size st)) eqn:valid_expansion.
+    + repeat eexists. eapply I_Stack_Expand_Dynamic. Search (_ <=? _). apply Compare_dec.leb_complete. auto.
+    + repeat eexists. eapply I_Stack_Expand_Dynamic_Guard. apply Compare_dec.leb_complete_conv. auto.
+  - repeat eexists. apply I_Stack_Contract.
+  - admit.
+  - admit.
+  - repeat eexists. apply I_Op.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
+
+Lemma verified_program_impl_verified_instr_class: forall p f bb i is st,
+  program_verifier p (abstractify (start_state p)) = true ->
+  In f p ->
+  In bb (V f) ->
+  In i bb ->
+  (exists fixpoint, 
+    instr_class_verifier i fixpoint = true /\
+      (imultistep (run_function p f) ((i :: is), st) ->
+        leq_abs_state (abstractify st) fixpoint)).
+Admitted.
+
+Lemma verified_program_only_steps_to_verified_instr: forall p f i is st,
+  program_verifier p (abstractify (start_state p)) = true ->
+  In f p ->
+
+  imultistep (run_function p f) ((i :: is), st) ->
+  instr_class_verifier i (abstractify st) = true.
+Proof.
+  intros. 
+
+
+Theorem verified_fixpoint_impl_istep: forall p f bb i is st,
+  program_verifier p (abstractify (start_state p)) = true ->
+
+  In f p ->
+  In bb (V f) ->
+  In i bb ->
+  
+  imultistep (run_function p f) ((i :: is), st) ->
+  exists is' st', (i :: is) / st i--> is' / st'.
+Proof.
+  intros. pose proof (verified_program_impl_verified_instr_class p f bb i is st) as soundness.
+  destruct soundness; auto.
+  destruct abstract_analysis_sound as [fixpoint abstract_analysis_sound].
+  eexists. intros. apply verified_impl_istep.
+  eapply leq_abs_state_verifies. apply abstract_analysis_sound; auto. eauto.
+Admitted.
+
+Theorem verified_fixpoint_impl_istep_final: forall p f i is st, 
+  exists fixpoint,
+  instr_class_verifier i fixpoint = true ->
+  imultistep (run_function p f) ((i :: is), st) ->
+  exists st', (i :: is) / st -->* nil / st'.
+Proof.
+  intros. 
+assert (
+  exists fixpoint,
+  (imultistep (run_function p f) ((i :: is), st) ->
+  leq_abs_state (abstractify st) fixpoint)) as abstract_analysis_sound. { admit. }
+  destruct abstract_analysis_sound as [fixpoint abstract_analysis_sound].
+  eexists. intros. apply verified_impl_istep.
+  eapply leq_abs_state_verifies. apply abstract_analysis_sound. apply H0. apply H.
+
+
+Lemma verified_program_impl_verified_function : forall p f,
+  program_verifier p = true ->
+  In f p ->
+  function_verifier f = true.
+Proof.
+  intros. unfold program_verifier in H. rewrite forallb_forall in H.
+  specialize H with f. apply H. apply H0.
+Qed.
+
+(*
+Lemma instr_class_verifier_shows_instr_class_safety: forall st abs_st i,
+  leq_abs_state abs_st
+
+Theorem verifier_shows_safety: forall p f bb,
+  program_verifier p = true ->
+  In f p ->
+  hd_error (V f) = Some bb ->
+  exists st, bb / (start_state p) -->* nil / st.
+Proof.
+  intros. induction bb.
+  - eexists. apply multi_refl.
+  - eexists. eapply multi_step.
+    + destruct a.
+      * 
+    + 
+
+
+
+assert (basic_block_verifier bb init_abs_state = true).
+  { unfold program_verifier in H. rewrite forallb_forall in H.
+  specialize H with f. apply H in H0. unfold function_verifier in H0. 
+  destruct (least_fixpoint f). 
+  - unfold forall2b in H0. rewrite forallb_forall in H0.
+; inversion H0. 
+  
+
+admit. inversion H0. apply H. apply H0.
+
+apply verified_program_impl_verified_function in H.
+  unfold program_verifier in H. unfold function_verifier in H.
+  
+
+
+Definition is_mem_bounded (s : state) (r_offset : register) (r_index : register) (r_base : register) : bool :=
+  andb (eqb (get_register s r_base) (proj1_sig (heap_base s)))
+    (ltb ((get_register s r_offset) + (get_register s r_index)) ((max_heap_size s) + (proj1_sig (above_heap_guard_size s)))).
 
 Definition is_stack_contract_safe (s : state) (i : nat) : bool :=
-  leb i (length s.(stack)).
+  leb i (frame_size s).
 
 Definition is_stack_index_safe (s : state) (i : nat) : bool :=
   ltb i (length s.(stack)).
@@ -393,3 +699,4 @@ Proof.
     * eapply instr_class_istep_abstractify_vstep. apply H5. apply H2.
     * auto.
 Qed.
+*)

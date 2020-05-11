@@ -1,9 +1,13 @@
 -R . VerifiedVerifier
 
+RecordSet.v
+RecordUpdate.v
 
 Coqlib.v
 Bits.v
+
 Lattice.v
+
 Ltac.v
 
 Machine.v

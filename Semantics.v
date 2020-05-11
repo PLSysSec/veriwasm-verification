@@ -1,139 +1,202 @@
 Require Import Coq.Lists.List.
 Require Import Coq.Lists.ListSet.
 Require Import Coq.Strings.String.
+Require Import Coq.Init.Nat.
+Require Import Coq.Arith.PeanoNat.
 Require Import BinInt.
 Require Import VerifiedVerifier.Machine.
 Require Import VerifiedVerifier.Bits.
 Require Import VerifiedVerifier.Maps.
+Require Import VerifiedVerifier.RecordUpdate.
 
-Type map.
 (*TODO: figure out if we need uints vs ints*)
-Definition registers_ty := total_map register int64.
+Definition address_ty := nat.
+Definition data_ty := nat.
 
-Definition stack_ty := list int64.
+Definition registers_ty := total_map register data_ty.
 
-Definition heap_ty := total_map int64 int64.
+Definition stack_ty := list data_ty.
 
-Definition flags_ty := total_map flag int1.
+Definition heap_ty := total_map address_ty data_ty.
 
-Definition function_table_ty := partial_map int64 string.
+(*Definition flags_ty := total_map flag int1.*)
 
-Record state := {
+(*Definition function_table_ty := partial_map address_ty string.*)
+
+Record state := mkState {
   regs : registers_ty;
-  flags : flags_ty;
+(*  flags : flags_ty; *)
+
   stack : stack_ty;
+  below_stack_guard_size : nat;
+  stack_base : address_ty;
+  max_stack_size : nat;
+  above_stack_guard_size : nat;
+  stack_base_gt_guard : stack_base > below_stack_guard_size;
+
   heap : heap_ty;
-  heap_base : int64;
-  function_table : function_table_ty;
+  below_heap_guard_size : nat;
+  heap_base : address_ty;
+  max_heap_size : nat;
+  above_heap_guard_size : nat;
+  heap_base_gt_guard : heap_base > below_heap_guard_size;
+  heap_size_eq_guard : max_heap_size = above_heap_guard_size; 
+(*  function_table : function_table_ty; *)
   error : bool;
+
+  program : program;
+  call_stack : list nat;
+  stack_size : nat;
+  frame_size : nat;
 }.
 
-Fixpoint value_to_int64 (s : state) (v :value) : int64 :=
+Instance etaState : Settable _ := settable! mkState 
+<
+  regs;
+(*  flags : flags_ty; *)
+
+  stack;
+  below_stack_guard_size;
+  stack_base;
+  max_stack_size;
+  above_stack_guard_size;
+  stack_base_gt_guard;
+
+  heap;
+  below_heap_guard_size;
+  heap_base;
+  max_heap_size;
+  above_heap_guard_size;
+  heap_base_gt_guard;
+  heap_size_eq_guard;
+(*  function_table; *)
+  error;
+
+  program;
+  call_stack;
+  stack_size;
+  frame_size
+>.
+
+Eval compute in (Z.to_nat (-1%Z)).
+
+Definition fourGB : address_ty :=
+pow 2 32.
+
+Definition zero : data_ty :=
+0.
+
+Program Definition start_state p : state :=
+{|
+  regs := t_empty zero;
+(*  flags : flags_ty; *)
+
+  stack := nil;
+  below_stack_guard_size := fourGB;
+  stack_base := 1 + fourGB;
+  max_stack_size := fourGB;
+  above_stack_guard_size := fourGB;
+
+  heap := t_empty zero;
+  below_heap_guard_size := fourGB;
+  heap_base := 1 + fourGB;
+  max_heap_size := fourGB;
+  above_heap_guard_size := fourGB;
+
+(*  function_table := empty; *)
+  error := false;
+
+  program := p;
+  call_stack := nil;
+  stack_size := 0;
+  frame_size := 0;
+|}.
+
+Fixpoint value_to_data (s : state) (v :value) : data_ty :=
 match v with
 | Const c => c
 end.
 
-Definition get_register (s : state) (r : register) : int64 :=
+Definition get_register (s : state) (r : register) : data_ty :=
   s.(regs) r.
 
-Definition set_register (s : state) (r : register) (v : int64) : state :=
-{| regs := t_update register_eq_dec s.(regs) r v;
-   flags := s.(flags);
-   stack := s.(stack);
-   heap := s.(heap);
-   heap_base := s.(heap_base);
-   function_table := s.(function_table);
-   error := s.(error) |}.
+Definition set_register (s : state) (r : register) (v : data_ty) : state :=
+s <| regs := t_update register_eq_dec s.(regs) r v |>.
 
+(*
 Definition set_flags (s : state) (f : flags_ty) : state :=
-{| regs := s.(regs);
-   flags := f;
-   stack := s.(stack);
-   heap := s.(heap);
-   heap_base := s.(heap_base) ;
-   function_table := s.(function_table);
-   error := s.(error) |}.
+s <| flags := f |>.
+*)
 
 Definition expand_stack (s : state) (i : nat) : state :=
-{| regs := s.(regs);
-   flags := s.(flags);
-   stack := s.(stack) ++ (repeat Word.zero i);
-   heap := s.(heap);
-   heap_base := s.(heap_base) ;
-   function_table := s.(function_table);
-   error := s.(error) |}.
+  set_register 
+(s <| stack ::= app (repeat 0 i) |> <| frame_size ::= add i |> <| stack_size ::= add i |>)
+  rsp (i + (get_register s rsp)).
 
-Fixpoint contract_stack (s : state) (i : nat) : state :=
-match i with
-| 0 => s
-| S n =>
-contract_stack {| regs := s.(regs);
-   flags := s.(flags);
-   stack := removelast s.(stack);
-   heap := s.(heap);
-   heap_base := s.(heap_base) ;
-   function_table := s.(function_table);
-   error := s.(error) |}
- n
+Fixpoint removelast_n {A} (n : nat) (l : list A) : list A :=
+match n with
+| 0 => l
+| S n' => removelast_n n' (removelast l)
 end.
+
+Definition contract_stack (s : state) (i : nat) : state :=
+set_register
+  (s <| stack ::= removelast_n i |> <| frame_size ::= sub i |> <| stack_size ::= sub i |>)
+  rsp (get_register s rsp).
 
 (* TODO: we don't actually return 0 for default here, we should
  * signal a trap (and exit?) *)
 (* TODO: Make stack indexing 64-bit *)
-Definition read_stack (s : state) (i : nat) : int64 :=
-nth_default Word.zero s.(stack) i.
+Definition read_stack (s : state) (i : nat) : data_ty :=
+nth_default 0 s.(stack) ((get_register s rsp) - (stack_base s) - (stack_size s) + i).
 
-Definition write_stack (s : state) (i : nat) (val : int64) : state :=
-{| regs := s.(regs);
-   flags := s.(flags);
-   stack := Machine.update s.(stack) i val;
-   heap := s.(heap);
-   heap_base := s.(heap_base) ;
-   function_table := s.(function_table);
-   error := s.(error) |}.
+Definition write_stack (s : state) (i : nat) (val : data_ty) : state :=
+s <| stack := Machine.update s.(stack) ((get_register s rsp) - (stack_base s) - (stack_size s) + i) val |>.
 
-Definition read_heap (s : state) (i : int64) : int64 :=
+Definition cons_stack (s : state) (val : data_ty) : state :=
+write_stack (expand_stack s 1) 0 val.
+
+Lemma cons_stack_correct : forall s val, 
+  (get_register s rsp) = (stack_base s) + (stack_size s) ->
+(stack (cons_stack s val)) = val :: (stack s).
+Proof.
+  intros. simpl. pose proof stack_base_gt_guard. specialize H0 with s. destruct (stack_base s).
+  - inversion H0.
+  - rewrite <- plus_n_O. rewrite H. Search (S _ + _). rewrite Nat.add_succ_comm. Search (_ + _ - _).
+    rewrite Minus.minus_plus. Search (_ - _). rewrite Nat.sub_diag. reflexivity.
+Qed.
+
+Definition read_heap (s : state) (i : address_ty) : data_ty :=
 s.(heap) i.
 
-Definition write_heap (s : state) (i : int64) (v : int64) : state :=
-{| regs := s.(regs);
-	 flags := s.(flags);
-	 stack := s.(stack);
-	 heap := t_update int64_eq_dec s.(heap) i v;
-   heap_base := s.(heap_base);
-   function_table := s.(function_table);
-   error := s.(error) |}.
+Definition write_heap (s : state) (i : address_ty) (v : data_ty) : state :=
+s <| heap := t_update Nat.eq_dec s.(heap) i v |>.
 
 Definition set_error_state (s : state) : state :=
-{| regs := s.(regs);
-	 flags := s.(flags);
-	 stack := s.(stack);
-	 heap := s.(heap);
-   heap_base := s.(heap_base);
-   function_table := s.(function_table);
-   error := true |}.
+s <| error := true |>.
 
-Definition fourGB : int64 := (Word.shl (Word.repr 2) (Word.repr 32)).
+(*Definition fourGB : int64 := (Word.shl (Word.repr 2) (Word.repr 32)). *)
 
 (*TODO: This doesn't handle signed/unsigned conversions correctly*)
-Definition run_conditional (c : conditional) (s : state) : bool :=
+Definition run_conditional (s : state) (c : conditional) : bool :=
   match c with
-| Not_Equal r1 r2 => negb (Word.eq (get_register s r1) (get_register s r2))
-| Equal r1 r2 => Word.eq (get_register s r1) (get_register s r2)
-| Greater r1 r2 => Word.lt (get_register s r2) (get_register s r1)
-| Greater_Equal r1 r2 => orb (Word.lt (get_register s r2) (get_register s r1)) (Word.eq (get_register s r1) (get_register s r2))
-| Above r1 r2 => Word.ltu (get_register s r2) (get_register s r1)
-| Above_Equal r1 r2 => orb (Word.ltu (get_register s r2) (get_register s r1)) (Word.eq (get_register s r1) (get_register s r2))
-| Lesser r1 r2 => Word.lt (get_register s r1) (get_register s r2)
-| Lesser_Equal r1 r2 => orb (Word.lt (get_register s r1) (get_register s r2)) (Word.eq (get_register s r1) (get_register s r2))
-| Below r1 r2 => Word.ltu (get_register s r1) (get_register s r2)
-| Below_Equal r1 r2 => orb (Word.ltu (get_register s r1) (get_register s r2)) (Word.eq (get_register s r1) (get_register s r2))
-| Counter_Register_Zero => Word.eq (get_register s rcx) (Word.repr 0)
+| Not_Equal r1 r2 => negb (eqb (get_register s r1) (get_register s r2))
+| Equal r1 r2 => eqb (get_register s r1) (get_register s r2)
+| Greater r1 r2 => ltb (get_register s r2) (get_register s r1)
+| Greater_Equal r1 r2 => orb (ltb (get_register s r2) (get_register s r1)) (eqb (get_register s r1) (get_register s r2))
+| Above r1 r2 => ltb (get_register s r2) (get_register s r1)
+| Above_Equal r1 r2 => orb (ltb (get_register s r2) (get_register s r1)) (eqb (get_register s r1) (get_register s r2))
+| Lesser r1 r2 => ltb (get_register s r1) (get_register s r2)
+| Lesser_Equal r1 r2 => orb (ltb (get_register s r1) (get_register s r2)) (eqb (get_register s r1) (get_register s r2))
+| Below r1 r2 => ltb (get_register s r1) (get_register s r2)
+| Below_Equal r1 r2 => orb (ltb (get_register s r1) (get_register s r2)) (eqb (get_register s r1) (get_register s r2))
+| Counter_Register_Zero => eqb (get_register s rcx) 0
 end.
 
-Definition run_op (op : opcode) (rs_dst : list register) (rs_src : list register) (s : state) :=
-fold_left (fun s r => set_register s r Word.zero) rs_dst s.
+Definition run_op (s : state) (op : opcode) (rs_dst : list register) (rs_src : list register) : state :=
+fold_left (fun s r => set_register s r 0) rs_dst s.
 
+(*
 (* TODO: Implement Op *)
 (* TODO: Can we index the stack from registers (probably), or only constants *)
 Definition run_instr (inst : instr_class) (s : state) : state := 
@@ -164,47 +227,318 @@ Theorem run_instr_deterministic : forall init_st st st' i,
 Proof.
   intros init_st st st' i H1 H2. rewrite <- H1, H2. auto.
 Qed.
+*)
 
+
+Definition run_heap_read st r_dst r_offset r_index r_base : state :=
+let index := (get_register st r_offset) + (get_register st r_index) + (get_register st r_base) in
+let base := heap_base st in 
+if orb (andb (leb (base + (max_heap_size st)) index) (ltb index (base + (max_heap_size st) + (above_heap_guard_size st))))
+      (andb (ltb index base) (leb (base - (below_heap_guard_size st)) index))
+then set_error_state st
+else set_register st r_dst (read_heap st index).
+
+Definition run_heap_write st r_offset r_index r_base r_val : state :=
+let index := (get_register st r_offset) + (get_register st r_index) + (get_register st r_base) in
+let base := heap_base st in 
+if orb (andb (leb (base + (max_heap_size st)) index) (ltb index (base + (max_heap_size st) + (above_heap_guard_size st))))
+      (andb (ltb index base) (leb (base - (below_heap_guard_size st)) index))
+then set_error_state st
+else write_heap st index (get_register st r_val).
+
+Definition run_call_check st r_src : state :=
+(*match nth_error (program st) (get_register st r_src) with *)
+if ltb (get_register st r_src) (List.length (program st))
+then st
+else set_error_state st.
+
+Definition run_stack_expand_dynamic st i : state :=
+if leb i ((max_stack_size st) - (List.length (stack st)))
+then expand_stack st i
+else set_error_state st.
+
+Definition run_stack_read st r_dst i : state :=
+let base := stack_base st in
+if orb (andb (leb (base + (max_stack_size st)) i) (ltb i (base + (max_stack_size st) + (above_stack_guard_size st))))
+      (andb (ltb i base) (leb (base - (below_stack_guard_size st)) i))
+then set_error_state st
+else set_register st r_dst (read_stack st i).
+
+Definition run_stack_write st i r_src : state :=
+let base := stack_base st in
+if orb (andb (leb (base + (max_stack_size st)) i) (ltb i (base + (max_stack_size st) + (above_stack_guard_size st))))
+      (andb (ltb i base) (leb (base - (below_stack_guard_size st)) i))
+then set_error_state st
+else write_stack st i (get_register st r_src).
+
+Definition get_function st fname : option function :=
+nth_error (program st) fname.
+
+Type get_function.
+
+Definition get_first_block f : basic_block :=
+match (V f) with
+| nil => nil
+| h :: t => h
+end.
+
+Definition get_basic_block st label : option basic_block := 
+match (call_stack st) with
+| nil => None
+| fname :: _ => 
+  match (get_function st fname) with
+  | None => None
+  | Some f => nth_error (V f) label
+  end
+end.
+
+Reserved Notation " i '/' st 'i-->' i' '/' st' "
+                  (at level 39, st at level 38, i' at level 38).
+Inductive istep : (list instr_class * state) -> (list instr_class * state) -> Prop :=
+| I_Heap_Read: forall st is r_base r_index r_offset r_dst index, 
+  index = (get_register st r_base) + (get_register st r_index) + (get_register st r_offset) ->
+  (heap_base st) <= index ->
+  index < (heap_base st) + (max_heap_size st) ->
+  ((Heap_Read r_dst r_offset r_index r_base) :: is) / st i--> is / set_register st r_dst (read_heap st index)
+| I_Heap_Read_Guard: forall st is r_base r_index r_offset r_dst index, 
+  index = (get_register st r_base) + (get_register st r_index) + (get_register st r_offset) ->
+  (heap_base st) + (max_heap_size st) <= index ->
+  index < (heap_base st) + (max_heap_size st) + (above_heap_guard_size st) ->
+  ((Heap_Read r_dst r_offset r_index r_base) :: is) / st i--> nil / set_error_state st
+| I_Heap_Write: forall st is r_base r_index r_offset r_val index,
+  index = (get_register st r_base) + (get_register st r_index) + (get_register st r_offset) ->
+  (heap_base st) <= index ->
+  index < (heap_base st) + (max_heap_size st) ->
+  ((Heap_Write r_offset r_index r_base r_val) :: is) / st i--> is / write_heap st index (get_register st r_val)
+| I_Heap_Write_Guard: forall st is r_base r_index r_offset r_val index,
+  index = (get_register st r_base) + (get_register st r_index) + (get_register st r_offset) ->
+  (heap_base st) + (max_heap_size st) <= index ->
+  index < (heap_base st) + (max_heap_size st) + (above_heap_guard_size st) ->
+  ((Heap_Write r_offset r_index r_base r_val) :: is) / st i--> nil / set_error_state st
+| I_Heap_Check: forall st is r_src,
+  ((Heap_Check r_src) :: is) / st i--> is / set_register st r_src ((get_register st r_src) mod (above_heap_guard_size st))
+| I_Call_Check: forall st is r_src,
+  get_register st r_src < List.length (program st) ->
+  ((Call_Check r_src) :: is) / st i--> is / st
+| I_Call_Check_Bad: forall st is r_src,
+  get_register st r_src >= List.length (program st) ->
+  ((Call_Check r_src) :: is) / st i--> nil / set_error_state st
+| I_Reg_Move: forall st is r_src r_dst,
+  ((Reg_Move r_dst r_src) :: is) / st i--> is / set_register st r_dst (get_register st r_src)
+| I_Reg_Write: forall st is r_dst val,
+  ((Reg_Write r_dst val) :: is) / st i--> is / set_register st r_dst (value_to_data st val)
+| I_Stack_Expand_Static: forall st is i,
+  ((Stack_Expand_Static i) :: is) / st i--> is / expand_stack st i
+| I_Stack_Expand_Dynamic: forall st is i,
+  i + (stack_size st) <= (max_stack_size st) ->
+  ((Stack_Expand_Dynamic i) :: is) / st i--> is / expand_stack st i
+| I_Stack_Expand_Dynamic_Guard: forall st is i,
+  i + (stack_size st) > (max_stack_size st) ->
+  ((Stack_Expand_Dynamic i) :: is) / st i--> nil / set_error_state st
+| I_Stack_Contract: forall st is i,
+  ((Stack_Contract i) :: is) / st i--> is / contract_stack st i
+| I_Stack_Read: forall st is i r_dst,
+  (stack_base st) < (get_register st rsp) - i ->
+  (get_register st rsp) - i < (stack_base st) + (stack_size st) ->
+  ((Stack_Read r_dst i) :: is) / st i--> is / set_register st r_dst (read_stack st i)
+| I_Stack_Read_Below_Guard: forall st is i r_dst,
+  (stack_base st) - (below_stack_guard_size st) < (get_register st rsp) - i ->
+  (get_register st rsp) - i < (stack_base st) ->
+  ((Stack_Read r_dst i) :: is) / st i--> is / set_error_state st
+| I_Stack_Read_Above_Guard: forall st is i r_dst,
+  (stack_base st) + (max_stack_size st) < (get_register st rsp) - i ->
+  (get_register st rsp) - i < (stack_base st) + (max_stack_size st) + (above_stack_guard_size st) ->
+  ((Stack_Read r_dst i) :: is) / st i--> is / set_error_state st
+| I_Stack_Write: forall st is i r_dst,
+  (stack_base st) < (get_register st rsp) - i ->
+  (get_register st rsp) - i < (stack_base st) + (max_stack_size st) ->
+  ((Stack_Write i r_dst) :: is) / st i--> is / set_register st r_dst (read_stack st i)
+| I_Stack_Write_Below_Guard: forall st is i r_dst,
+  (stack_base st) - (below_stack_guard_size st) < (get_register st rsp) - i ->
+  (get_register st rsp) - i < (stack_base st) ->
+  ((Stack_Write i r_dst) :: is) / st i--> is / set_error_state st
+| I_Stack_Write_Above_Guard: forall st is i r_dst,
+  (stack_base st) + (max_stack_size st) < (get_register st rsp) - i ->
+  (get_register st rsp) - i < (stack_base st) + (max_stack_size st) + (above_stack_guard_size st) ->
+  ((Stack_Write i r_dst) :: is) / st i--> is / set_error_state st
+| I_Op: forall st is op rs_dst rs_src,
+  ((Op op rs_dst rs_src) :: is) / st i--> is / run_op st op rs_dst rs_src
+(*| I_Indirect_Call_Good: forall st is reg fname f,
+    (get_register st reg) = fname ->
+    get_function st fname = Some f ->
+    ((Indirect_Call reg) :: is) / st i--> ((get_first_block f) ++ is) / st'
+| I_Indirect_Call_Bad: forall st st' reg fname i,
+    (get_register st reg) = fname ->
+    get_function st fname = None ->
+    i / st i--> st' ->
+    Indirect_Call reg / st i-->  st'
+| I_Direct_Call_Good: forall st st' fname f,
+    get_function st fname = Some f ->
+    function_istep f (cons_stack st fname) st' ->
+    Direct_Call fname / st i-->  st'
+| I_Direct_Call_Bad : forall st st' fname i,
+    get_function st fname = None ->
+    i / st i--> st' ->
+    Direct_Call fname / st i-->  st'
+| I_Branch_True_Good: forall st t_st f_st c t_label f_label t_bb f_bb,
+    get_basic_block st t_label = Some t_bb ->
+    get_basic_block st f_label = Some f_bb ->
+    basic_block_istep t_bb st t_st ->
+    basic_block_istep f_bb st f_st ->
+    run_conditional st c = true ->
+    (Branch c t_label f_label) / st i--> t_st
+| I_Branch_False_Good: forall st t_st f_st c t_label f_label t_bb f_bb,
+    get_basic_block st t_label = Some t_bb ->
+    get_basic_block st f_label = Some f_bb ->
+    basic_block_istep t_bb st t_st ->
+    basic_block_istep f_bb st f_st ->
+    run_conditional st c = false ->
+    (Branch c t_label f_label) / st i--> f_st
+| I_Branch_True_Bad: forall st st' c t_label f_label i,
+    get_basic_block st t_label = None ->
+    i / st i--> st' ->
+    (Branch c t_label f_label) / st i--> st'
+| I_Branch_False_Bad: forall st st' c t_label f_label i,
+    get_basic_block st f_label = None ->
+    i / st i--> st' ->
+    (Branch c t_label f_label) / st i--> st'
+| I_Jmp_Good: forall st st' j_label bb,
+    get_basic_block st j_label = Some bb ->
+    basic_block_istep bb st st' ->
+    (Jmp j_label) / st i--> st'
+| I_Jmp_Bad: forall st st' j_label,
+    get_basic_block st j_label = None ->
+    (Jmp j_label) / st i--> st'
+| I_Ret_Good: forall st st' fname stack',
+    st' = st <| stack := stack' |> ->
+    (stack st) = fname :: stack' ->
+    fname < List.length (stack st) ->
+    Ret / st i--> st'
+| I_Ret_Bad_Function: forall st st' fname stack' i,
+    (stack st) = fname :: stack' ->
+    fname >= List.length (stack st) ->
+    i / st i--> st' ->
+    Ret / st i--> st'
+| I_Ret_Bad_Stack: forall st st' i,
+    (stack st) = nil ->
+    i / st i--> st' ->
+    Ret / st i--> st'
+*)
+  where " i '/' st 'i-->' i' '/' st' " := (istep (i,st) (i',st')).
+
+Definition relation (X : Type) := X -> X -> Prop.
+
+Inductive multi {X : Type} (R : relation X) : relation X :=
+  | multi_refl : forall (x : X), multi R x x
+  | multi_step : forall (x y z : X),
+                    R x y ->
+                    multi R y z ->
+                    multi R x z.
+
+Definition imultistep := multi istep.
+
+Notation " i '/' st '-->*' i' '/' st' " :=
+   (multi istep  (i,st) (i',st'))
+   (at level 39, st at level 38, i' at level 38).
+
+(*
 Reserved Notation " i '/' st 'i-->' st' "
                   (at level 40, st' at level 39).
 Inductive instr_class_istep : instr_class -> state -> state -> Prop := 
-| I_Heap_Read: forall st r_base r_src r_dst,
-    Heap_Read r_dst r_src r_base / st i--> set_register st r_dst (read_heap st (Word.add (get_register st r_src) (get_register st r_base)))
-| I_Heap_Write: forall st r_base r_val r_dst,
-    Heap_Write r_dst r_val r_base / st i--> write_heap st (Word.add (get_register st r_dst) (get_register st r_base)) (get_register st r_val)
+| I_Heap_Read: forall st r_base r_index r_offset r_dst,
+    Heap_Read r_dst r_offset r_index r_base / st i--> run_heap_read st r_dst r_offset r_index r_base
+| I_Heap_Write: forall st r_base r_val r_index r_offset,
+    Heap_Write r_offset r_index r_base r_val / st i--> run_heap_write st r_offset r_index r_base r_val
 | I_Heap_Check: forall st r_src,
-    Heap_Check r_src / st i--> set_register st r_src (Word.modu (get_register st r_src) fourGB)
-| I_Call_Check_Valid: forall st r_src fname,
-    (function_table st) (get_register st r_src) = Some fname ->
-    Call_Check r_src / st i--> st 
-| I_Call_Check_Invalid: forall st r_src,
-    (function_table st) (get_register st r_src) = None ->
-    Call_Check r_src / st i--> set_error_state st 
+    Heap_Check r_src / st i--> set_register st r_src ((get_register st r_src) mod fourGB)
+| I_Call_Check: forall st r_src,
+    Call_Check r_src / st i--> run_call_check st r_src
 | I_Reg_Move: forall st r_src r_dst,
     Reg_Move r_dst r_src / st i--> set_register st r_dst (get_register st r_src)
 | I_Reg_Write: forall st r_dst val,
-    Reg_Write r_dst val / st i--> set_register st r_dst (value_to_int64 st val)
-| I_Stack_Expand: forall st i,
-    Stack_Expand i / st i--> expand_stack st i
-| I_Stack_Contract: forall st i,
+    Reg_Write r_dst val / st i--> set_register st r_dst (value_to_data st val)
+| I_Stack_Expand_Static: forall st i,
+    Stack_Expand_Static i / st i--> expand_stack st i
+| I_Stack_Expand_Dynamic: forall st i,
+    Stack_Expand_Dynamic i / st i--> run_stack_expand_dynamic st i
+
+(* i forgot how this case should be handled *)
+| I_Stack_Contract_Good: forall st i,
+    i <= List.length (stack st) ->
     Stack_Contract i / st i--> contract_stack st i
+| I_Stack_Contract_Bad: forall st i,
+    i > List.length (stack st) ->
+    Stack_Contract i / st i--> set_error_state st
+
 | I_Stack_Read: forall st i r_dst,
-    Stack_Read r_dst i / st i--> set_register st r_dst (read_stack st i)
+    Stack_Read r_dst i / st i--> run_stack_read st r_dst i
 | I_Stack_Write: forall st i r_src,
-    Stack_Write i r_src / st i--> write_stack st i (get_register st r_src)
+    Stack_Write i r_src / st i--> run_stack_write st i r_src
 | I_Op: forall st op rs_dst rs_src,
-    (Op op rs_dst rs_src) / st i--> (run_op op rs_dst rs_src st)
+    (Op op rs_dst rs_src) / st i--> run_op st op rs_dst rs_src
+
 (* those calls might also be wrong *)
-| I_Indirect_Call: forall st reg,
-    Indirect_Call reg / st i-->  st
-| I_Direct_Call: forall st fname,
-    Direct_Call fname / st i-->  st
-| I_Branch: forall st c t_label f_label,
-    (Branch c t_label f_label) / st i--> st
-| I_Jmp: forall st j_label,
-    (Jmp j_label) / st i--> st
-| I_Ret: forall st,
-    Ret / st i-->  st
+| I_Indirect_Call_Good: forall st st' reg fname f,
+    (get_register st reg) = fname ->
+    get_function st fname = Some f ->
+    function_istep f (cons_stack st fname) st' ->
+    Indirect_Call reg / st i-->  st'
+| I_Indirect_Call_Bad: forall st st' reg fname i,
+    (get_register st reg) = fname ->
+    get_function st fname = None ->
+    i / st i--> st' ->
+    Indirect_Call reg / st i-->  st'
+| I_Direct_Call_Good: forall st st' fname f,
+    get_function st fname = Some f ->
+    function_istep f (cons_stack st fname) st' ->
+    Direct_Call fname / st i-->  st'
+| I_Direct_Call_Bad : forall st st' fname i,
+    get_function st fname = None ->
+    i / st i--> st' ->
+    Direct_Call fname / st i-->  st'
+| I_Branch_True_Good: forall st t_st f_st c t_label f_label t_bb f_bb,
+    get_basic_block st t_label = Some t_bb ->
+    get_basic_block st f_label = Some f_bb ->
+    basic_block_istep t_bb st t_st ->
+    basic_block_istep f_bb st f_st ->
+    run_conditional st c = true ->
+    (Branch c t_label f_label) / st i--> t_st
+| I_Branch_False_Good: forall st t_st f_st c t_label f_label t_bb f_bb,
+    get_basic_block st t_label = Some t_bb ->
+    get_basic_block st f_label = Some f_bb ->
+    basic_block_istep t_bb st t_st ->
+    basic_block_istep f_bb st f_st ->
+    run_conditional st c = false ->
+    (Branch c t_label f_label) / st i--> f_st
+| I_Branch_True_Bad: forall st st' c t_label f_label i,
+    get_basic_block st t_label = None ->
+    i / st i--> st' ->
+    (Branch c t_label f_label) / st i--> st'
+| I_Branch_False_Bad: forall st st' c t_label f_label i,
+    get_basic_block st f_label = None ->
+    i / st i--> st' ->
+    (Branch c t_label f_label) / st i--> st'
+| I_Jmp_Good: forall st st' j_label bb,
+    get_basic_block st j_label = Some bb ->
+    basic_block_istep bb st st' ->
+    (Jmp j_label) / st i--> st'
+| I_Jmp_Bad: forall st st' j_label,
+    get_basic_block st j_label = None ->
+    (Jmp j_label) / st i--> st'
+| I_Ret_Good: forall st st' fname stack',
+    st' = st <| stack := stack' |> ->
+    (stack st) = fname :: stack' ->
+    fname < List.length (stack st) ->
+    Ret / st i--> st'
+| I_Ret_Bad_Function: forall st st' fname stack' i,
+    (stack st) = fname :: stack' ->
+    fname >= List.length (stack st) ->
+    i / st i--> st' ->
+    Ret / st i--> st'
+| I_Ret_Bad_Stack: forall st st' i,
+    (stack st) = nil ->
+    i / st i--> st' ->
+    Ret / st i--> st'
   where " i '/' st 'i-->' st'" := (instr_class_istep i st st')
 
 with basic_block_istep : basic_block -> state -> state -> Prop :=
@@ -219,15 +553,16 @@ with basic_block_istep : basic_block -> state -> state -> Prop :=
   basic_block_istep (i :: is) st st'
 
 with function_istep : function -> state -> state -> Prop :=
-| I_Function: forall f bb st st',
+| I_Function_Some: forall f bb st st',
   head (V f) = Some bb ->
   basic_block_istep bb st st' ->
   function_istep f st st'
+| I_Function_None: forall f st,
+  head (V f) = None ->
+  function_istep f st st
 .
-
-  
-Hint Constructors instr_class_istep.
-
+*)
+(*
 Theorem instr_class_istep_deterministic : forall init_st st st' i, 
   i / init_st i--> st ->
   i / init_st i--> st' ->
@@ -316,3 +651,4 @@ Fixpoint run_program (p : program_ty) (cfg : cfg_ty) (n : node_ty) (s : state) (
     | None => s''
     end
   end.
+*)

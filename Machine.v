@@ -4,7 +4,7 @@ Require Import Coq.Program.Basics.
 Require Import Coq.Strings.String.
 Require Import Coq.Lists.List.
 Require Import Coq.Init.Logic.
-
+Require Import Coq.Arith.PeanoNat.
 Require Import VerifiedVerifier.Bits.
 Require Import VerifiedVerifier.Maps.
 
@@ -37,7 +37,7 @@ Inductive register : Set :=
 | r15.
 
 Inductive value : Set :=
-| Const : int64 -> value.
+| Const : nat -> value.
 
 Inductive opcode : Set := 
 | Add : opcode
@@ -77,19 +77,20 @@ Inductive conditional :=
 Definition label := nat.
 
 Inductive instr_class : Type := 
-| Heap_Read : register -> register -> register -> instr_class
-| Heap_Write : register -> register -> register -> instr_class
+| Heap_Read : register -> register -> register -> register -> instr_class
+| Heap_Write : register -> register -> register -> register -> instr_class
 | Heap_Check : register -> instr_class
 | Call_Check : register -> instr_class
 | Reg_Move : register -> register -> instr_class
 | Reg_Write : register -> value -> instr_class
-| Stack_Expand : nat -> instr_class
+| Stack_Expand_Static : nat -> instr_class
+| Stack_Expand_Dynamic : nat -> instr_class
 | Stack_Contract : nat -> instr_class
 | Stack_Read : register -> nat -> instr_class
 | Stack_Write : nat -> register -> instr_class
 | Op : opcode -> list register -> list register -> instr_class
 | Indirect_Call : register -> instr_class
-| Direct_Call : string -> instr_class
+| Direct_Call : nat -> instr_class
 | Branch : conditional -> label -> label -> instr_class
 | Jmp: label -> instr_class
 | Ret : instr_class.
@@ -284,21 +285,21 @@ Definition well_formed_cfg (cfg : cfg_ty) : Prop :=
 *)
 
 
-
-Definition well_formed_fun (f : function_ty) : Prop :=
+(*
+Definition well_formed_fun (f : function) : Prop :=
   well_formed_cfg (fst f).
 
-Definition unique_fun_name (p : program_ty) : Prop :=
+Definition unique_fun_name (p : program) : Prop :=
   forall f f',
     In f p.(funs) ->
     In f' p.(funs) ->
     (eq f f' \/ (not (eq (snd f) (snd f')))).
 
-Definition well_formed_program (p : program_ty) : Prop :=
+Definition well_formed_program (p : program) : Prop :=
   unique_fun_name p /\
   forall f,
     In f p.(funs) -> well_formed_fun f.
-
+*)
 Definition register_eq_dec : forall (x y : register), {x=y} + {x<>y}.
   intros; decide equality.
 Defined.
@@ -313,7 +314,7 @@ Definition edge_class_eq_dec : forall (x y : edge_class), {x=y} + {x<>y}.
 Defined.
 *)
 Definition value_eq_dec : forall (x y: value), {x=y} + {x<>y}.
-  intros; decide equality; try apply register_eq_dec; try apply int64_eq_dec.
+  intros; decide equality; try apply register_eq_dec; try apply Nat.eq_dec.
 Defined.
 
 Definition instr_class_eq_dec : forall (x y : instr_class), {x=y} + {x<>y}.
