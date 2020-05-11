@@ -236,8 +236,8 @@ Lemma verified_program_only_steps_to_verified_instr: forall p f i is st,
   instr_class_verifier i (abstractify st) = true.
 Proof.
   intros. 
-
-
+Admitted.
+(*
 Theorem verified_fixpoint_impl_istep: forall p f bb i is st,
   program_verifier p (abstractify (start_state p)) = true ->
 
@@ -254,12 +254,13 @@ Proof.
   eexists. intros. apply verified_impl_istep.
   eapply leq_abs_state_verifies. apply abstract_analysis_sound; auto. eauto.
 Admitted.
+*)
 
 Theorem verified_fixpoint_impl_istep_final: forall p f i is st, 
   exists fixpoint,
   instr_class_verifier i fixpoint = true ->
   imultistep (run_function p f) ((i :: is), st) ->
-  exists st', (i :: is) / st -->* nil / st'.
+  exists st', (i :: is) / st i--> is / st'.
 Proof.
   intros. 
 assert (
