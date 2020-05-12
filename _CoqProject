@@ -10,9 +10,9 @@ Lattice.v
 
 Ltac.v
 
+Maps.v
 Machine.v
 BinaryLattice.v
-Maps.v
 Semantics.v
 AbstractAnalysis.v
 Safety.v
