@@ -449,7 +449,14 @@ Notation " i '/' st '-->*' i' '/' st' " :=
    (multi istep  (i,st) (i',st'))
    (at level 39, st at level 38, i' at level 38).
 
-Definition imultistep_fuel := multi istep_fuel.
+Inductive imultistep_fuel : ((list instr_class * state) * nat) -> ((list instr_class * state) * nat) -> Prop :=
+| multi_base : forall i s i' s' fuel fuel',
+    istep_fuel (i, s, fuel) (i', s', fuel') ->
+    imultistep_fuel (i, s, fuel) (i', s', fuel')
+| multi_transitive : forall i1 s1 fuel1 i2 s2 fuel2 i3 s3 fuel3,
+    istep_fuel (i1, s1, fuel1) (i2, s2, fuel2) ->
+    imultistep_fuel (i2, s2, fuel2) (i3, s3, fuel3) ->
+    imultistep_fuel (i1, s1, fuel1) (i3, s3, fuel3).
 
 (*
 Reserved Notation " i '/' st 'i-->' st' "
