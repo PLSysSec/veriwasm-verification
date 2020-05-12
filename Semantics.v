@@ -426,6 +426,14 @@ Inductive istep : (list instr_class * state) -> (list instr_class * state) -> Pr
 *)
   where " i '/' st 'i-->' i' '/' st' " := (istep (i,st) (i',st')).
 
+Inductive istep_fuel : ((list instr_class * state) * nat) -> ((list instr_class * state) * nat) -> Prop :=
+| IFuel_Base : forall i s,
+    istep_fuel ((i, s), 0) ((i, s), 0)
+| IFuel_Step : forall i s i' s' fuel fuel',
+    istep (i, s) (i', s') ->
+    fuel = S fuel' ->
+    istep_fuel ((i, s), fuel) ((i', s'), fuel').
+
 Definition relation (X : Type) := X -> X -> Prop.
 
 Inductive multi {X : Type} (R : relation X) : relation X :=
