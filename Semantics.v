@@ -449,6 +449,8 @@ Notation " i '/' st '-->*' i' '/' st' " :=
    (multi istep  (i,st) (i',st'))
    (at level 39, st at level 38, i' at level 38).
 
+Definition imultistep_fuel := multi istep_fuel.
+
 (*
 Reserved Notation " i '/' st 'i-->' st' "
                   (at level 40, st' at level 39).
