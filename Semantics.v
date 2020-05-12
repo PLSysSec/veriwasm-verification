@@ -48,6 +48,7 @@ Record state := mkState {
   call_stack : list nat;
   stack_size : nat;
   frame_size : nat;
+  frames : list nat;
 }.
 
 Instance etaState : Settable _ := settable! mkState 
@@ -75,7 +76,8 @@ Instance etaState : Settable _ := settable! mkState
   program;
   call_stack;
   stack_size;
-  frame_size
+  frame_size;
+  frames
 >.
 
 Eval compute in (Z.to_nat (-1%Z)).
@@ -110,6 +112,7 @@ Program Definition start_state p : state :=
   call_stack := nil;
   stack_size := 0;
   frame_size := 0;
+  frames := nil;
 |}.
 
 Fixpoint value_to_data (s : state) (v :value) : data_ty :=
@@ -165,6 +168,12 @@ Proof.
   - rewrite <- plus_n_O. rewrite H. Search (S _ + _). rewrite Nat.add_succ_comm. Search (_ + _ - _).
     rewrite Minus.minus_plus. Search (_ - _). rewrite Nat.sub_diag. reflexivity.
 Qed.
+
+Definition push_frame st : state :=
+  st <| frame_size := 0 |> <| frames ::= cons (frame_size st) |>.
+
+Definition pop_frame st : state :=
+  st <| frame_size := hd 0 (frames st) |> <| frames := tl (frames st) |>.
 
 Definition read_heap (s : state) (i : address_ty) : data_ty :=
 s.(heap) i.
@@ -274,8 +283,6 @@ else write_stack st i (get_register st r_src).
 Definition get_function st fname : option function :=
 nth_error (program st) fname.
 
-Type get_function.
-
 Definition get_first_block f : basic_block :=
 match (V f) with
 | nil => nil
@@ -363,6 +370,29 @@ Inductive istep : (list instr_class * state) -> (list instr_class * state) -> Pr
   ((Stack_Write i r_dst) :: is) / st i--> is / set_error_state st
 | I_Op: forall st is op rs_dst rs_src,
   ((Op op rs_dst rs_src) :: is) / st i--> is / run_op st op rs_dst rs_src
+| I_Branch_True: forall st is c t_label f_label t_bb f_bb,
+  get_basic_block st t_label = Some t_bb ->
+  get_basic_block st f_label = Some f_bb ->
+  run_conditional st c = true ->
+  ((Branch c t_label f_label) :: is) / st i--> (t_bb ++ is) / st
+| I_Branch_False: forall st is c t_label f_label t_bb f_bb,
+  get_basic_block st t_label = Some t_bb ->
+  get_basic_block st f_label = Some f_bb ->
+  run_conditional st c = false ->
+  ((Branch c t_label f_label) :: is) / st i--> (f_bb ++ is) / st
+| I_Jmp: forall st is j_label j_bb,
+  get_basic_block st j_label = Some j_bb ->
+  ((Jmp j_label) :: is) / st i--> (j_bb ++ is) / st
+| I_Indirect_Call: forall st is reg f,
+  get_function st (get_register st reg) = Some f ->
+  ((Indirect_Call reg) :: is) / st i--> ((get_first_block f) ++ is) / push_frame (cons_stack st 1)
+| I_Direct_Call: forall st is fname f,
+  get_function st fname = Some f ->
+  ((Direct_Call fname) :: is) / st i--> ((get_first_block f) ++ is) / push_frame (cons_stack st 1)
+| I_Ret: forall st is,
+  (read_stack st 0) = 1 ->
+  (Ret :: is) / st i--> is / pop_frame st
+
 (*| I_Indirect_Call_Good: forall st is reg fname f,
     (get_register st reg) = fname ->
     get_function st fname = Some f ->
