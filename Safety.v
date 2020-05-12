@@ -268,18 +268,35 @@ assert (
   (imultistep (run_function p f) ((i :: is), st) ->
   leq_abs_state (abstractify st) fixpoint)) as abstract_analysis_sound. { admit. }
   destruct abstract_analysis_sound as [fixpoint abstract_analysis_sound].
-  eexists. intros. apply verified_impl_istep.
-  eapply leq_abs_state_verifies. apply abstract_analysis_sound. apply H0. apply H.
-
+eexists. intros.
+  (*apply verified_impl_istep.
+  eapply leq_abs_state_verifies. apply abstract_analysis_sound. apply H0. apply H.*)
+Admitted.
 
 Lemma verified_program_impl_verified_function : forall p f,
-  program_verifier p = true ->
+  program_verifier p (abstractify (start_state p)) = true ->
   In f p ->
-  function_verifier f = true.
+  function_verifier f (abstractify (start_state p)) = true.
 Proof.
   intros. unfold program_verifier in H. rewrite forallb_forall in H.
   specialize H with f. apply H. apply H0.
 Qed.
+
+Theorem verified_program :
+  forall p f fuel,
+    program_verifier p (abstractify (start_state p)) = true ->
+    In f p ->
+    (first_block f) <> nil -> (* NOTE: well-formedness *)
+    exists is' st' fuel',
+      imultistep_fuel ((run_function p f), fuel) ((is', st'), 0) \/
+      imultistep_fuel ((run_function p f), fuel) ((nil, st'), fuel').
+Proof.
+  intros. destruct fuel. unfold run_function.
+  repeat eexists. left. constructor. constructor.
+  repeat eexists. unfold run_function.
+  induction (first_block f).
+  contradiction.
+  intros IHl.
 
 (*
 Lemma instr_class_verifier_shows_instr_class_safety: forall st abs_st i,
