@@ -39,7 +39,7 @@ Inductive register : Set :=
 Inductive value : Set :=
 | Const : nat -> value.
 
-Inductive opcode : Set := 
+Inductive opcode : Set :=
 | Add : opcode
 | Sub : opcode
 | Mult : opcode
@@ -76,7 +76,7 @@ Inductive conditional :=
 
 Definition label := nat.
 
-Inductive instr_class : Type := 
+Inductive instr_class : Type :=
 | Heap_Read : register -> register -> register -> register -> instr_class
 | Heap_Write : register -> register -> register -> register -> instr_class
 | Heap_Check : register -> instr_class
@@ -102,7 +102,7 @@ match i with
 end.
 
 Definition nonterminating_instr_class i :=
-negb (terminating_instr_class i). 
+negb (terminating_instr_class i).
 
 Definition basic_block := list instr_class.
 
@@ -145,7 +145,7 @@ Definition jmp_instr_class := {i : instr_class | forall j_label, i = (Jmp j_labe
 Definition ret_instr_class := {i : instr_class | i = (Ret)}.*)
 
 (* Definition term_instr_class := (sum branch_instr_class (sum jmp_instr_class ret_instr_class)). *)
-Definition term_instr_class := {i : instr_class | terminating_instr_class i}. 
+Definition term_instr_class := {i : instr_class | terminating_instr_class i}.
 Definition nonterm_instr_class := {i : instr_class | not (terminating_instr_class i)}.
 (* Definition basic_block := {l : list instr_class | terminating_instr_class (last l)}. *)
 
@@ -191,7 +191,7 @@ Proof.
 Qed.
 
 Inductive basic_block' : Type:=
-| Basic_Block_One: 
+| Basic_Block_One:
   term_instr_class -> basic_block'
 | Basic_Block_Many:
   nonterm_instr_class -> basic_block' -> basic_block'.
@@ -377,4 +377,3 @@ Proof.
   - exfalso. apply Heq. auto.
   - reflexivity.
 Qed.
-

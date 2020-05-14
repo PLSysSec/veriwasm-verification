@@ -1,10 +1,10 @@
-Definition total_map (A B:Type) := 
+Definition total_map (A B:Type) :=
   A -> B.
 
 Definition t_update {A B : Type} (eq_dec:forall (x y:A),{x=y}+{x<>y}) (f:total_map A B) (x:A) (v:B) : total_map A B :=
   fun y => if eq_dec x y then v else f y.
 
-Definition t_get {A} {B} (f:total_map A B) (x:A) : B := 
+Definition t_get {A} {B} (f:total_map A B) (x:A) : B :=
   f x.
 
 Definition t_empty {A} {B} (v:B) : total_map A B :=

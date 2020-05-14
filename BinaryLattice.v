@@ -2,7 +2,7 @@ Require Import VerifiedVerifier.Lattice.
 Require Import VerifiedVerifier.Ltac.
 
 Inductive BinarySet : Set :=
-| top 
+| top
 | bottom.
 
 Definition BinarySet_eq_dec : forall (x y : BinarySet), {x=y} + {x<>y}.

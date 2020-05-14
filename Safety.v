@@ -27,7 +27,7 @@ if (eqb i (below_stack_guard_size s)) then bottom else top.
 Definition abstractify_data (s : state) (i : data_ty) : info :=
 {| is_heap_base := is_heap_base_data s i;
    heap_bounded := is_heap_bounded_data s i;
-   cf_bounded := is_cf_bounded_data s i; 
+   cf_bounded := is_cf_bounded_data s i;
    above_stack_bounded := is_above_stack_bounded_data s i;
    below_stack_bounded := is_below_stack_bounded_data s i;
 |}.
@@ -45,7 +45,7 @@ Definition abstractify (s : state) : abs_state :=
    abs_heap_base := (heap_base s);
    abs_below_stack_guard_size := (below_stack_guard_size s);
    abs_above_stack_guard_size := (above_stack_guard_size s);
-   abs_above_heap_guard_size := (above_heap_guard_size s); 
+   abs_above_heap_guard_size := (above_heap_guard_size s);
 |}.
 
 Lemma BinarySet_eqb_eq: forall a b,
@@ -180,7 +180,7 @@ Proof.
       unfold get_register in *. pose proof (heap_size_eq_guard st) as H. lia.
   - apply andb_prop in H as [Hbase Hv]. apply andb_prop in Hv as [Hindex Hoffset].
     apply BinarySet_eqb_eq in Hbase. apply BinarySet_eqb_eq in Hindex.
-    apply BinarySet_eqb_eq in Hoffset. 
+    apply BinarySet_eqb_eq in Hoffset.
     remember ((get_register st r) + (get_register st r0) + (get_register st r1)) as index.
     remember (ltb index ((heap_base st) + (max_heap_size st))) as valid_index.
     destruct valid_index.
@@ -222,7 +222,7 @@ Lemma verified_program_impl_verified_instr_class: forall p f bb i is st,
   In f p ->
   In bb (V f) ->
   In i bb ->
-  (exists fixpoint, 
+  (exists fixpoint,
     instr_class_verifier i fixpoint = true /\
       (imultistep (run_function p f) ((i :: is), st) ->
         leq_abs_state (abstractify st) fixpoint)).
@@ -235,7 +235,7 @@ Lemma verified_program_only_steps_to_verified_instr: forall p f i is st,
   imultistep (run_function p f) ((i :: is), st) ->
   instr_class_verifier i (abstractify st) = true.
 Proof.
-  intros. 
+  intros.
 Admitted.
 (*
 Theorem verified_fixpoint_impl_istep: forall p f bb i is st,
@@ -244,7 +244,7 @@ Theorem verified_fixpoint_impl_istep: forall p f bb i is st,
   In f p ->
   In bb (V f) ->
   In i bb ->
-  
+
   imultistep (run_function p f) ((i :: is), st) ->
   exists is' st', (i :: is) / st i--> is' / st'.
 Proof.
@@ -256,13 +256,13 @@ Proof.
 Admitted.
 *)
 
-Theorem verified_fixpoint_impl_istep_final: forall p f i is st, 
+Theorem verified_fixpoint_impl_istep_final: forall p f i is st,
   exists fixpoint,
   instr_class_verifier i fixpoint = true ->
   imultistep (run_function p f) ((i :: is), st) ->
   exists st', (i :: is) / st i--> is / st'.
 Proof.
-  intros. 
+  intros.
 assert (
   exists fixpoint,
   (imultistep (run_function p f) ((i :: is), st) ->
@@ -328,21 +328,21 @@ Theorem verified_program_step :
     exists is' st',
       imultistep_fuel ((run_function p f), S fuel) (is', st', 0).
 Proof.
-  intros. eexists ?[is']. eexists ?[st']. unfold run_function. unfold run_function in H1.
+  intros.
+  eexists ?[is']. eexists ?[st'].
+  unfold run_function. unfold run_function in H1.
   pose proof imultistep_finish' as Hfinish.
   specialize Hfinish with fuel (first_block f) (start_state p) is1 st1 ?is' ?st'.
   apply Hfinish. auto.
   constructor.
-
-  case istep_fuel.
-
-  case is1.
+  case is1; eauto.
   - admit.
-  - intros. pose proof verified_impl_istep as Hstep.
+  - intros.
+    pose proof verified_impl_istep as Hstep.
     specialize Hstep with i l st1.
     apply IFuel_Step; auto.
-    eapply ex_intro.
-
+    destruct Hstep. admit.
+    destruct H2. eapply H2.
 
 
 Admitted.
@@ -374,24 +374,24 @@ Proof.
   - eexists. apply multi_refl.
   - eexists. eapply multi_step.
     + destruct a.
-      * 
-    + 
+      *
+    +
 
 
 
 assert (basic_block_verifier bb init_abs_state = true).
   { unfold program_verifier in H. rewrite forallb_forall in H.
-  specialize H with f. apply H in H0. unfold function_verifier in H0. 
-  destruct (least_fixpoint f). 
+  specialize H with f. apply H in H0. unfold function_verifier in H0.
+  destruct (least_fixpoint f).
   - unfold forall2b in H0. rewrite forallb_forall in H0.
-; inversion H0. 
-  
+; inversion H0.
+
 
 admit. inversion H0. apply H. apply H0.
 
 apply verified_program_impl_verified_function in H.
   unfold program_verifier in H. unfold function_verifier in H.
-  
+
 
 
 Definition is_mem_bounded (s : state) (r_offset : register) (r_index : register) (r_base : register) : bool :=
@@ -527,7 +527,7 @@ Lemma leq_info_empty : forall i,
   leq_info i empty_info.
 Proof.
   intros [[] [] []]; apply leq_info_rule; apply top_rel.
-Qed. 
+Qed.
 
 (* TODO: This doesn't consider flags or memory *)
 Reserved Notation " st ≤ st' "
@@ -535,18 +535,18 @@ Reserved Notation " st ≤ st' "
 Inductive leq_state : abs_state -> abs_state -> Prop :=
 | leq_state_rule: forall st st',
   (forall reg, leq_info (get_register_info st reg) (get_register_info st' reg)) ->
-  (forall i, leq_info (get_stack_info st i) (get_stack_info st' i)) -> 
+  (forall i, leq_info (get_stack_info st i) (get_stack_info st' i)) ->
   length (abs_stack st) = length (abs_stack st') ->
   st ≤ st'
 where " st ≤ st' " := (leq_state st st').
 
-Lemma leq_state_ge_stack_length: 
+Lemma leq_state_ge_stack_length:
 forall st1 st2,
 st1 ≤ st2 ->
 length (abs_stack st1) >= length (abs_stack st2).
 Proof.
 intros st1 st2 Hleq. inversion Hleq. subst. lia.
-Qed. (* this is not possible to prove because we can always get an empty state so we need to add this constraint to the definition*) 
+Qed. (* this is not possible to prove because we can always get an empty state so we need to add this constraint to the definition*)
 
 
 Lemma leq_state_vstep :
@@ -572,12 +572,12 @@ intros i st1 st2 st2' Hleq Hstep. inversion Hstep; subst; eexists; auto.
   inversion Hleq. subst. lia.
 - eapply V_Stack_Write.
   inversion Hleq. subst. lia.
-- eapply V_Indirect_Call; inversion Hleq; subst. 
+- eapply V_Indirect_Call; inversion Hleq; subst.
   + specialize H1 with reg. inversion H1. subst. rewrite <- H6 in H. auto.
     rewrite H in H6. inversion H6. auto.
   + specialize H1 with rdi. inversion H1. subst. rewrite <- H6 in H0. auto.
     rewrite H0 in H4. inversion H4. auto.
-- eapply V_Direct_Call; inversion Hleq; subst. 
+- eapply V_Direct_Call; inversion Hleq; subst.
   + specialize H0 with rdi. inversion H0. subst. rewrite <- H5 in H. auto.
     rewrite H in H3. inversion H3. auto.
 - eapply V_Ret.
@@ -589,7 +589,7 @@ Lemma safe_mem_base : forall s i,
   (abstractify_int64 s i).(abs_heap_base) = bottom ->
   Word.eq i s.(heap_base) = true.
 Proof.
-  intros s i H. unfold abstractify_int64 in H. inversion H. unfold is_heap_base_int64 in H1. 
+  intros s i H. unfold abstractify_int64 in H. inversion H. unfold is_heap_base_int64 in H1.
   remember (Word.eq i (heap_base s)) as goal. destruct goal.
   + auto.
   + inversion H1.
@@ -599,7 +599,7 @@ Lemma safe_mem_bound : forall s i,
   (abstractify_int64 s i).(abs_heap_bound) = bottom ->
   Word.lt i fourGB = true.
 Proof.
-  intros s i H. unfold abstractify_int64 in H. inversion H. unfold is_heap_bounded_int64 in H1. 
+  intros s i H. unfold abstractify_int64 in H. inversion H. unfold is_heap_bounded_int64 in H1.
   remember (Word.lt i fourGB) as goal. destruct goal.
   + auto.
   + inversion H1.
@@ -609,7 +609,7 @@ Lemma safe_function_index : forall s i,
   (abstractify_int64 s i).(abs_cf_bound) = bottom ->
   member s.(function_table) i = true.
 Proof.
-  intros s i H. unfold abstractify_int64 in H. inversion H. unfold is_cf_bounded_int64 in H1. 
+  intros s i H. unfold abstractify_int64 in H. inversion H. unfold is_cf_bounded_int64 in H1.
   remember (member (function_table s) i) as goal. destruct goal.
   + auto.
   + inversion H1.
@@ -728,7 +728,7 @@ Proof.
       unfold set_register. unfold abstractify_int64. unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64.
       simpl. apply leq_info_refl.
   + intros i. apply leq_info_refl.
-  + auto. 
+  + auto.
   + intros Hfalse. inversion Hfalse.
   + intros Hfalse. inversion Hfalse.
 - inversion Hi. subst. inversion Hv. subst. unfold abstractify. simpl.
@@ -740,12 +740,12 @@ Proof.
     * subst. simpl. rewrite register_get_after_set_eq. unfold abs_heap_bounded_info.
       unfold abstractify_registers. unfold abstractify_int64. unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64.
       simpl. rewrite register_get_after_set_eq. apply leq_info_rule; try apply top_rel.
-      simpl. Search (Word.lt). admit. (*this is clearly true. i gotta dig around for a useful lemma *) 
+      simpl. Search (Word.lt). admit. (*this is clearly true. i gotta dig around for a useful lemma *)
     * simpl. rewrite register_get_after_set_neq. unfold abs_heap_bounded_info.
       unfold abstractify_registers. unfold abstractify_int64. unfold is_heap_base_int64, is_heap_bounded_int64, is_cf_bounded_int64.
       simpl. rewrite register_get_after_set_neq. apply leq_info_refl. apply n. apply n.
   + intros i. apply leq_info_refl.
-  + auto. 
+  + auto.
 - inversion Hi. subst. admit.
 - admit.
 - admit.
