@@ -282,21 +282,88 @@ Proof.
   specialize H with f. apply H. apply H0.
 Qed.
 
+Theorem istep_fuel :
+  forall fuel fuel' l l' st st' fuel1 fuel1',
+    istep_fuel (l, st, fuel) (l', st', fuel1) ->
+    istep_fuel (l, st, fuel') (l', st', fuel1').
+Admitted.
+
+Theorem multistep_fuel_associativity :
+  forall l st fuel l' st' fuel',
+    imultistep_fuel (l, st, S fuel) (l', st', fuel') ->
+    exists l1 st1,
+      (imultistep_fuel (l, st, 1) (l1, st1, 0) /\
+       imultistep_fuel (l1, st1, fuel) (l', st', fuel')).
+Proof.
+  intros.
+  eexists ?[l1]. eexists ?[st1]. split.
+  - induction H.
+    + constructor. eauto. admit.
+    + 
+
+
+Theorem verified_program_induction_helper :
+  forall p f fuel l st,
+    program_verifier p (abstractify (start_state p)) = true ->
+    In f p ->
+    imultistep_fuel ((run_function p f), fuel) (l, st, 0) ->
+    exists l' st',
+      istep_fuel (l, st, 1) (l', st', 0).
+Proof.
+  intros. repeat eexists. destruct l.
+  admit.
+  apply IFuel_Step; auto.
+  destruct i eqn:Hinstr.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
+
+
+
 Theorem verified_program :
   forall p f fuel,
     program_verifier p (abstractify (start_state p)) = true ->
     In f p ->
-    (first_block f) <> nil -> (* NOTE: well-formedness *)
-    exists is' st' fuel',
-      imultistep_fuel ((run_function p f), fuel) ((is', st'), 0) \/
-      imultistep_fuel ((run_function p f), fuel) ((nil, st'), fuel').
+    exists is' st',
+      imultistep_fuel ((run_function p f), fuel) (is', st', 0).
 Proof.
-  intros. destruct fuel. unfold run_function.
-  repeat eexists. left. constructor. constructor.
+  intros. induction fuel. unfold run_function.
+  repeat eexists. constructor. constructor.
   repeat eexists. unfold run_function.
   induction (first_block f).
-  contradiction.
-  intros IHl.
+  - admit. (*constructor. apply IFuel_End.*)
+  - pose proof verified_program_induction_helper.
+    specialize H1 with p f (S fuel) l (start_state p).
+    apply 
+
+Admitted.
+
+
+
+Theorem verified_program_induction :
+  forall p f fuel,
+    program_verifier p (abstractify (start_state p)) = true ->
+    In f p ->
+    exists is1 is2 st1 st2,
+      imultistep_fuel ((run_function p f), fuel) (is1, st1, 0) ->
+
+
+
 
 (*
 Lemma instr_class_verifier_shows_instr_class_safety: forall st abs_st i,
