@@ -16,7 +16,7 @@ Definition is_heap_bounded_data (s : state) (i : data_ty) : BinarySet :=
 if (ltb i (above_heap_guard_size s)) then bottom else top.
 
 Definition is_cf_bounded_data (s : state) (i : data_ty) : BinarySet :=
-if (ltb i (List.length (program s))) then bottom else top.
+if (ltb i (List.length (program s).(Funs))) then bottom else top.
 
 Definition is_above_stack_bounded_data (s : state) (i : data_ty) : BinarySet :=
 if (eqb i (above_stack_guard_size s)) then bottom else top.
