@@ -282,25 +282,26 @@ Proof.
   specialize H with f. apply H. apply H0.
 Qed.
 
-Theorem istep_fuel :
-  forall fuel fuel' l l' st st' fuel1 fuel1',
-    istep_fuel (l, st, fuel) (l', st', fuel1) ->
-    istep_fuel (l, st, fuel') (l', st', fuel1').
-Admitted.
-
 Theorem multistep_fuel_associativity :
   forall l st fuel l' st' fuel',
     imultistep_fuel (l, st, S fuel) (l', st', fuel') ->
     exists l1 st1,
       (imultistep_fuel (l, st, 1) (l1, st1, 0) /\
        imultistep_fuel (l1, st1, fuel) (l', st', fuel')).
-Proof.
+Admitted.
+(*)
   intros.
   eexists ?[l1]. eexists ?[st1]. split.
   - induction H.
     + constructor. eauto. admit.
-    + 
+Admitted.
+*)
 
+Lemma istep_fuel_independence :
+  forall fuel fuel' l l' st st' fuel1 fuel1',
+    istep_fuel (l, st, fuel) (l', st', fuel1) ->
+    istep_fuel (l, st, fuel') (l', st', fuel1').
+Admitted.
 
 Theorem verified_program_induction_helper :
   forall p f fuel l st,
@@ -333,6 +334,55 @@ Proof.
   - admit.
 Admitted.
 
+Lemma imultistep_finish :
+  forall fuel is st is1 st1 is' st',
+    imultistep_fuel (is, st, S fuel) (is', st', 0) ->
+    imultistep_fuel (is, st, fuel) (is1, st1, 0) ->
+    imultistep_fuel (is1, st1, 1) (is', st', 0).
+Admitted.
+
+Lemma imultistep_finish' :
+  forall fuel is st is1 st1 is' st',
+    imultistep_fuel (is, st, fuel) (is1, st1, 0) ->
+    imultistep_fuel (is1, st1, 1) (is', st', 0) ->
+    imultistep_fuel (is, st, S fuel) (is', st', 0).
+Admitted.
+
+Theorem verified_program_step :
+  forall p f fuel is1 st1,
+    program_verifier p (abstractify (start_state p)) = true ->
+    In f p ->
+    imultistep_fuel ((run_function p f), fuel) (is1, st1, 0) ->
+    exists is' st',
+      imultistep_fuel ((run_function p f), S fuel) (is', st', 0).
+Proof.
+  intros. eexists ?[is']. eexists ?[st']. unfold run_function. unfold run_function in H1.
+  pose proof imultistep_finish' as Hfinish.
+  specialize Hfinish with fuel (first_block f) (start_state p) is1 st1 ?is' ?st'.
+  apply Hfinish. auto.
+  constructor.
+  destruct is1. apply IFuel_End.
+  apply IFuel_Step; auto.
+  case i.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
+
 
 
 Theorem verified_program :
@@ -342,16 +392,24 @@ Theorem verified_program :
     exists is' st',
       imultistep_fuel ((run_function p f), fuel) (is', st', 0).
 Proof.
-  intros. induction fuel. unfold run_function.
-  repeat eexists. constructor. constructor.
-  repeat eexists. unfold run_function.
-  induction (first_block f).
-  - admit. (*constructor. apply IFuel_End.*)
-  - pose proof verified_program_induction_helper.
-    specialize H1 with p f (S fuel) l (start_state p).
-    apply 
-
+  intros. induction fuel.
+  - admit. (* TODO: constructor messes the next goal up for some reason *)
+  - eapply verified_program_step; auto.
+    admit. (* TODO: Not sure how to introduce this, but should be trivial *)
 Admitted.
+
+
+
+
+(*
+Theorem verified_program_attempt :
+  forall p f fuel is1 st1,
+    program_verifier p (abstractify (start_state p)) = true ->
+    In f p ->
+    imultistep_fuel ((run_function p f), fuel) (is1, st1, 0) ->
+    exists is' st',
+      imultistep_fuel ((run_function p f), S fuel) (is', st', 0).
+
 
 
 
@@ -361,6 +419,7 @@ Theorem verified_program_induction :
     In f p ->
     exists is1 is2 st1 st2,
       imultistep_fuel ((run_function p f), fuel) (is1, st1, 0) ->
+*)
 
 
 
