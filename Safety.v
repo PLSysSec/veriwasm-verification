@@ -289,49 +289,11 @@ Theorem multistep_fuel_associativity :
       (imultistep_fuel (l, st, 1) (l1, st1, 0) /\
        imultistep_fuel (l1, st1, fuel) (l', st', fuel')).
 Admitted.
-(*)
-  intros.
-  eexists ?[l1]. eexists ?[st1]. split.
-  - induction H.
-    + constructor. eauto. admit.
-Admitted.
-*)
 
 Lemma istep_fuel_independence :
   forall fuel fuel' l l' st st' fuel1 fuel1',
     istep_fuel (l, st, fuel) (l', st', fuel1) ->
     istep_fuel (l, st, fuel') (l', st', fuel1').
-Admitted.
-
-Theorem verified_program_induction_helper :
-  forall p f fuel l st,
-    program_verifier p (abstractify (start_state p)) = true ->
-    In f p ->
-    imultistep_fuel ((run_function p f), fuel) (l, st, 0) ->
-    exists l' st',
-      istep_fuel (l, st, 1) (l', st', 0).
-Proof.
-  intros. repeat eexists. destruct l.
-  admit.
-  apply IFuel_Step; auto.
-  destruct i eqn:Hinstr.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
 Admitted.
 
 Lemma imultistep_finish :
@@ -363,27 +325,8 @@ Proof.
   constructor.
   destruct is1. apply IFuel_End.
   apply IFuel_Step; auto.
-  case i.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
+  pose proof
 Admitted.
-
-
 
 Theorem verified_program :
   forall p f fuel,
@@ -397,32 +340,6 @@ Proof.
   - eapply verified_program_step; auto.
     admit. (* TODO: Not sure how to introduce this, but should be trivial *)
 Admitted.
-
-
-
-
-(*
-Theorem verified_program_attempt :
-  forall p f fuel is1 st1,
-    program_verifier p (abstractify (start_state p)) = true ->
-    In f p ->
-    imultistep_fuel ((run_function p f), fuel) (is1, st1, 0) ->
-    exists is' st',
-      imultistep_fuel ((run_function p f), S fuel) (is', st', 0).
-
-
-
-
-Theorem verified_program_induction :
-  forall p f fuel,
-    program_verifier p (abstractify (start_state p)) = true ->
-    In f p ->
-    exists is1 is2 st1 st2,
-      imultistep_fuel ((run_function p f), fuel) (is1, st1, 0) ->
-*)
-
-
-
 
 (*
 Lemma instr_class_verifier_shows_instr_class_safety: forall st abs_st i,
