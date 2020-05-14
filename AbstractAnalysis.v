@@ -283,10 +283,10 @@ Definition initialize_worklist (cfg : cfg_ty) : total_map node_ty abs_state :=
 Reserved Notation " i '/' st 'v-->' st' "
                   (at level 40, st' at level 39).
 
-Definition instr_class_flow_function (i : instr_class) (s : abs_state) : abs_state :=
+Definition instr_class_flow_function (i : instr_ty) (s : abs_state) : abs_state :=
 match (abs_lifted_state s) with
 | sub_state =>
-  match i with
+  match i.(instr) with
   | Heap_Read r_dst _ _ _ => set_register_info s r_dst top_info
   | Heap_Write _ _ _ _ => s
   | Heap_Check r_src => set_register_info s r_src abs_heap_bounded_info
@@ -486,7 +486,7 @@ end.
 Fixpoint basic_block_verifier (bb : basic_block) (s : abs_state) : bool :=
 match bb with
 | nil => true
-| i :: bb' => andb (instr_class_verifier i s) (basic_block_verifier bb' (instr_class_flow_function i s))
+| i :: bb' => andb (instr_class_verifier i.(instr) s) (basic_block_verifier bb' (instr_class_flow_function i s))
 end.
 
 Fixpoint forall2b {A B} (f : A -> B -> bool) (aa : list A) (bb : list B) : bool :=
@@ -533,10 +533,10 @@ match (least_fixpoint abs_st f) with
 end.
 
 Definition program_verifier (p : program) (abs_st : abs_state) : bool :=
-forallb (fun f => function_verifier f abs_st) p.
+forallb (fun f => function_verifier f abs_st) p.(Funs).
 
 Lemma program_verifier_impl_function_verifier: forall abs_st p f,
-  In f p ->
+  In f p.(Funs) ->
   program_verifier p abs_st = true ->
   function_verifier f abs_st = true.
 Proof.
@@ -575,7 +575,7 @@ Lemma basic_block_verifier_impl_instr_class_verifier: forall abs_st abs_st' bb i
 
   (exists fixpoint_list,
     In abs_st' fixpoint_list ->
-    instr_class_verifier i abs_st' = true).
+    instr_class_verifier i.(instr) abs_st' = true).
 Proof.
   intros. unfold basic_block_verifier in H0. induction bb.
   - Search (In _ nil). apply in_nil in H. eauto.
