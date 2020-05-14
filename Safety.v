@@ -309,14 +309,22 @@ Lemma imultistep_finish' :
     imultistep_fuel (is, st, S fuel) (is', st', 0).
 Admitted.
 
-(* TODO: This needs to change once we introduce instruction addresses so we can actually talk about
- * how an abstract state represents a join-fixpoint of all the concrete states at that point *)
-Theorem program_proof_tmp :
-  forall p f fuel i is st,
+(* NOTE: This is, in general, a true statement about abstract analyses. It is admitted here
+   because we assume the abstract analysis is correct and instead focus on proving facts about
+   whether or not we have enough information to guarantee sfi properties. *)
+(* NOTE: This isn't technically precise enough because the statement holds not for an
+   arbitrary fixpoint, but for the fixpoint produced by the verifier at that instruction. *)
+(* TODO: update this to use the verifier fixpoint when we update the verifier to associate
+   fixpoints with functions. *)
+Theorem verifier_fixpoint_relation :
+forall i,
+  exists fixpoint,
+  forall p f is st fuel,
     program_verifier p (abstractify (start_state p)) = true ->
     In f p.(Funs) ->
     imultistep_fuel ((run_function p f), fuel) (i :: is, st, 0) ->
-    instr_class_verifier i.(instr) (abstractify st) = true.
+    (leq_abs_state (abstractify st) fixpoint /\
+     instr_class_verifier i.(instr) fixpoint = true).
 Admitted.
 
 Theorem verified_program_step :
