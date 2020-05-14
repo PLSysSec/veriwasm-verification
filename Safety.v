@@ -310,6 +310,16 @@ Lemma imultistep_finish' :
     imultistep_fuel (is, st, S fuel) (is', st', 0).
 Admitted.
 
+(* TODO: This needs to change once we introduce instruction addresses so we can actually talk about
+ * how an abstract state represents a join-fixpoint of all the concrete states at that point *)
+Theorem program_proof_tmp :
+  forall p f fuel i is st,
+    program_verifier p (abstractify (start_state p)) = true ->
+    In f p ->
+    imultistep_fuel ((run_function p f), fuel) (i :: is, st, 0) ->
+    instr_class_verifier i (abstractify st) = true.
+Admitted.
+
 Theorem verified_program_step :
   forall p f fuel is1 st1,
     program_verifier p (abstractify (start_state p)) = true ->
@@ -323,9 +333,18 @@ Proof.
   specialize Hfinish with fuel (first_block f) (start_state p) is1 st1 ?is' ?st'.
   apply Hfinish. auto.
   constructor.
-  destruct is1. apply IFuel_End.
-  apply IFuel_Step; auto.
-  pose proof
+
+  case istep_fuel.
+
+  case is1.
+  - admit.
+  - intros. pose proof verified_impl_istep as Hstep.
+    specialize Hstep with i l st1.
+    apply IFuel_Step; auto.
+    eapply ex_intro.
+
+
+
 Admitted.
 
 Theorem verified_program :
