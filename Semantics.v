@@ -462,7 +462,9 @@ Inductive istep_fuel : ((list instr_class * state) * nat) -> ((list instr_class 
 | IFuel_Step : forall i s i' s' fuel fuel',
     istep (i, s) (i', s') ->
     fuel = S fuel' ->
-    istep_fuel ((i, s), fuel) ((i', s'), fuel').
+    istep_fuel ((i, s), fuel) ((i', s'), fuel')
+| IFuel_End : forall s fuel,
+    istep_fuel (nil, s, fuel) (nil, s, 0).
 
 Definition relation (X : Type) := X -> X -> Prop.
 
