@@ -156,10 +156,10 @@ Proof.
 Qed.
 
 Lemma verified_impl_istep : forall i is st,
-  instr_class_verifier i (abstractify st) = true ->
+  instr_class_verifier i.(instr) (abstractify st) = true ->
   exists is' st', (i :: is) / st i--> is' / st'.
 Proof.
-  intros. destruct i eqn:Hi ; unfold instr_class_verifier in H; simpl in H.
+  intros. destruct i; destruct instr eqn:Hi; unfold instr_class_verifier in H; simpl in H.
   - apply andb_prop in H as [Hbase Hv]. apply andb_prop in Hv as [Hindex Hoffset].
     apply BinarySet_eqb_eq in Hbase. apply BinarySet_eqb_eq in Hindex.
     apply BinarySet_eqb_eq in Hoffset.
@@ -197,7 +197,7 @@ Proof.
       apply if_thn_true, PeanoNat.Nat.ltb_lt in Hindex. apply if_thn_true, PeanoNat.Nat.ltb_lt in Hoffset.
       unfold get_register in *. pose proof (heap_size_eq_guard st) as H. lia.
   - repeat eexists. apply I_Heap_Check.
-  - destruct (get_register st r <? List.length (program st)) eqn:valid_function.
+  - destruct (get_register st r <? List.length (program st).(Funs)) eqn:valid_function.
     + repeat eexists. eapply I_Call_Check. apply PeanoNat.Nat.ltb_lt. auto.
     + repeat eexists. eapply I_Call_Check_Bad. apply PeanoNat.Nat.ltb_nlt in valid_function. apply Compare_dec.not_lt. auto.
   - repeat eexists. apply I_Reg_Move.
@@ -219,21 +219,20 @@ Admitted.
 
 Lemma verified_program_impl_verified_instr_class: forall p f bb i is st,
   program_verifier p (abstractify (start_state p)) = true ->
-  In f p ->
+  In f p.(Funs) ->
   In bb (V f) ->
   In i bb ->
   (exists fixpoint,
-    instr_class_verifier i fixpoint = true /\
+    instr_class_verifier i.(instr) fixpoint = true /\
       (imultistep (run_function p f) ((i :: is), st) ->
         leq_abs_state (abstractify st) fixpoint)).
 Admitted.
 
 Lemma verified_program_only_steps_to_verified_instr: forall p f i is st,
   program_verifier p (abstractify (start_state p)) = true ->
-  In f p ->
-
+  In f p.(Funs) ->
   imultistep (run_function p f) ((i :: is), st) ->
-  instr_class_verifier i (abstractify st) = true.
+  instr_class_verifier i.(instr) (abstractify st) = true.
 Proof.
   intros.
 Admitted.
@@ -258,7 +257,7 @@ Admitted.
 
 Theorem verified_fixpoint_impl_istep_final: forall p f i is st,
   exists fixpoint,
-  instr_class_verifier i fixpoint = true ->
+  instr_class_verifier i.(instr) fixpoint = true ->
   imultistep (run_function p f) ((i :: is), st) ->
   exists st', (i :: is) / st i--> is / st'.
 Proof.
@@ -275,7 +274,7 @@ Admitted.
 
 Lemma verified_program_impl_verified_function : forall p f,
   program_verifier p (abstractify (start_state p)) = true ->
-  In f p ->
+  In f p.(Funs) ->
   function_verifier f (abstractify (start_state p)) = true.
 Proof.
   intros. unfold program_verifier in H. rewrite forallb_forall in H.
@@ -315,15 +314,15 @@ Admitted.
 Theorem program_proof_tmp :
   forall p f fuel i is st,
     program_verifier p (abstractify (start_state p)) = true ->
-    In f p ->
+    In f p.(Funs) ->
     imultistep_fuel ((run_function p f), fuel) (i :: is, st, 0) ->
-    instr_class_verifier i (abstractify st) = true.
+    instr_class_verifier i.(instr) (abstractify st) = true.
 Admitted.
 
 Theorem verified_program_step :
   forall p f fuel is1 st1,
     program_verifier p (abstractify (start_state p)) = true ->
-    In f p ->
+    In f p.(Funs) ->
     imultistep_fuel ((run_function p f), fuel) (is1, st1, 0) ->
     exists is' st',
       imultistep_fuel ((run_function p f), S fuel) (is', st', 0).
@@ -342,7 +341,7 @@ Proof.
     specialize Hstep with i l st1.
     apply IFuel_Step; auto.
     destruct Hstep. admit.
-    destruct H2. eapply H2.
+    destruct H2.
 
 
 Admitted.
@@ -350,7 +349,7 @@ Admitted.
 Theorem verified_program :
   forall p f fuel,
     program_verifier p (abstractify (start_state p)) = true ->
-    In f p ->
+    In f p.(Funs) ->
     exists is' st',
       imultistep_fuel ((run_function p f), fuel) (is', st', 0).
 Proof.
