@@ -104,10 +104,15 @@ end.
 Definition nonterminating_instr_class i :=
 negb (terminating_instr_class i).
 
-Definition basic_block := list instr_class.
+Record instr_ty := {
+  instr : instr_class;
+  addr : nat;
+}.
 
-Definition wf_instr_class (i : instr_class) (nodes : list basic_block) :=
-match i with
+Definition basic_block := list instr_ty.
+
+Definition wf_instr_ty (i : instr_ty) (nodes : list basic_block) :=
+match i.(instr) with
 | Branch _ t_label f_label => (t_label < length nodes) /\ (f_label < length nodes)
 | Jmp j_label => j_label < length nodes
 | Ret => True
@@ -116,7 +121,7 @@ end.
 
 Fixpoint wf_bb (bb : basic_block) (nodes : list basic_block) :=
 match bb with
-| i :: bb' => wf_instr_class i nodes /\ wf_bb bb' nodes
+| i :: bb' => wf_instr_ty i nodes /\ wf_bb bb' nodes
 | nil => True
 end.
 
@@ -232,7 +237,20 @@ Structure ControlFlowGraph := {
 
 Definition function := ControlFlowGraph.
 
-Definition program := list ControlFlowGraph.
+Structure program := {
+  Funs : list ControlFlowGraph;
+  wf_addrs : forall f f' v v' i i' instr instr',
+      In f Funs ->
+      In f' Funs ->
+      In v f.(V) ->
+      In v' f'.(V) ->
+      Some instr = (nth_error v i) ->
+      Some instr' = (nth_error v' i') ->
+      instr.(addr) = instr'.(addr) ->
+      (f = f' /\
+       v = v' /\
+       i = i');
+}.
 
 (* Definition basic_block := list instr_class. *)
 (*
@@ -320,6 +338,10 @@ Defined.
 Definition instr_class_eq_dec : forall (x y : instr_class), {x=y} + {x<>y}.
   intros; decide equality; try apply register_eq_dec; try apply value_eq_dec; try apply string_dec;
   try apply conditional_eq_dec; decide equality; decide equality.
+Defined.
+
+Definition instr_ty_eq_dec : forall (x y : instr_ty), {x=y} + {x<>y}.
+  intros; decide equality. decide equality. apply instr_class_eq_dec.
 Defined.
 
 (*
