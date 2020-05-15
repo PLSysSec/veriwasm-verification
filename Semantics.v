@@ -93,7 +93,7 @@ Program Definition start_state p : state :=
   regs := t_empty zero;
 (*  flags : flags_ty; *)
 
-  stack := nil;
+  stack := 1 :: nil;
   below_stack_guard_size := fourGB;
   stack_base := 1 + fourGB;
   max_stack_size := fourGB;
@@ -110,7 +110,7 @@ Program Definition start_state p : state :=
 
   program := p;
   call_stack := nil;
-  stack_size := 0;
+  stack_size := 1;
   frame_size := 0;
   frames := nil;
 |}.
