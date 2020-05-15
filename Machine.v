@@ -76,52 +76,56 @@ Inductive conditional :=
 
 Definition label := nat.
 
+Definition program_point := nat.
+
 Inductive instr_class : Type :=
-| Heap_Read : register -> register -> register -> register -> instr_class
-| Heap_Write : register -> register -> register -> register -> instr_class
-| Heap_Check : register -> instr_class
-| Call_Check : register -> instr_class
-| Reg_Move : register -> register -> instr_class
-| Reg_Write : register -> value -> instr_class
-| Stack_Expand_Static : nat -> instr_class
-| Stack_Expand_Dynamic : nat -> instr_class
-| Stack_Contract : nat -> instr_class
-| Stack_Read : register -> nat -> instr_class
-| Stack_Write : nat -> register -> instr_class
-| Op : opcode -> list register -> list register -> instr_class
-| Indirect_Call : register -> instr_class
-| Direct_Call : nat -> instr_class
-| Branch : conditional -> label -> label -> instr_class
-| Jmp: label -> instr_class
-| Ret : instr_class.
+| Heap_Read : program_point -> register -> register -> register -> register -> instr_class
+| Heap_Write : program_point -> register -> register -> register -> register -> instr_class
+| Heap_Check : program_point -> register -> instr_class
+| Call_Check : program_point -> register -> instr_class
+| Reg_Move : program_point -> register -> register -> instr_class
+| Reg_Write : program_point -> register -> value -> instr_class
+| Stack_Expand_Static : program_point -> nat -> instr_class
+| Stack_Expand_Dynamic : program_point -> nat -> instr_class
+| Stack_Contract : program_point -> nat -> instr_class
+| Stack_Read : program_point -> register -> nat -> instr_class
+| Stack_Write : program_point -> nat -> register -> instr_class
+| Op : program_point -> opcode -> list register -> list register -> instr_class
+| Indirect_Call : program_point -> register -> instr_class
+| Direct_Call : program_point -> nat -> instr_class
+| Branch : program_point -> conditional -> label -> label -> instr_class
+| Jmp: program_point -> label -> instr_class
+| Ret : program_point -> instr_class.
 
 Definition terminating_instr_class i :=
 match i with
-| Branch _ _ _ | Jmp _ | Ret => true
+| Branch _ _ _ _ | Jmp _ _ | Ret _ => true
 | _ => false
 end.
 
 Definition nonterminating_instr_class i :=
 negb (terminating_instr_class i).
 
+(*
 Record instr_ty := {
   instr : instr_class;
   addr : nat;
 }.
+*)
 
-Definition basic_block := list instr_ty.
+Definition basic_block := list instr_class.
 
-Definition wf_instr_ty (i : instr_ty) (nodes : list basic_block) :=
-match i.(instr) with
-| Branch _ t_label f_label => (t_label < length nodes) /\ (f_label < length nodes)
-| Jmp j_label => j_label < length nodes
-| Ret => True
+Definition wf_instr_class (i : instr_class) (nodes : list basic_block) :=
+match i with
+| Branch _ _ t_label f_label => (t_label < length nodes) /\ (f_label < length nodes)
+| Jmp _ j_label => j_label < length nodes
+| Ret _ => True
 | _ => False
 end.
 
 Fixpoint wf_bb (bb : basic_block) (nodes : list basic_block) :=
 match bb with
-| i :: bb' => wf_instr_ty i nodes /\ wf_bb bb' nodes
+| i :: bb' => wf_instr_class i nodes /\ wf_bb bb' nodes
 | nil => True
 end.
 
@@ -237,6 +241,8 @@ Structure ControlFlowGraph := {
 
 Definition function := ControlFlowGraph.
 
+Definition program := list function.
+(*
 Structure program := {
   Funs : list ControlFlowGraph;
   wf_addrs : forall f f' v v' i i' instr instr',
@@ -250,7 +256,7 @@ Structure program := {
       (f = f' /\
        v = v' /\
        i = i');
-}.
+}.*)
 
 (* Definition basic_block := list instr_class. *)
 (*
@@ -322,6 +328,23 @@ Definition register_eq_dec : forall (x y : register), {x=y} + {x<>y}.
   intros; decide equality.
 Defined.
 
+Definition register_eqb (r1 : register) (r2 : register) :=
+  if (register_eq_dec r1 r2) then true else false.
+
+Lemma register_eqb_true: forall r1 r2,
+  register_eqb r1 r2 = true ->
+  r1 = r2.
+Proof.
+  intros [] []; eauto; intros; inversion H.
+Qed.
+
+Lemma register_eqb_false: forall r1 r2,
+  register_eqb r1 r2 = false ->
+  r1 <> r2.
+Proof.
+  intros [] []; eauto; unfold not; intros; inversion H0; inversion H.
+Qed.
+
 Definition conditional_eq_dec : forall (x y : conditional), {x=y} + {x<>y}.
   intros; decide equality; try apply register_eq_dec.
 Defined.
@@ -340,9 +363,11 @@ Definition instr_class_eq_dec : forall (x y : instr_class), {x=y} + {x<>y}.
   try apply conditional_eq_dec; decide equality; decide equality.
 Defined.
 
+(*
 Definition instr_ty_eq_dec : forall (x y : instr_ty), {x=y} + {x<>y}.
   intros; decide equality. decide equality. apply instr_class_eq_dec.
 Defined.
+*)
 
 (*
 Definition basic_block_eq_dec : forall (x y : basic_block), {x=y} + {x<>y}.

@@ -65,7 +65,9 @@ Record abs_state := mk_abs_state {
   abs_heap_base: nat;
   abs_below_stack_guard_size : nat;
   abs_above_stack_guard_size : nat;
-  abs_above_heap_guard_size : nat;
+  abs_above_heap_guard_size : nat; 
+  abs_prog : program;
+  abs_func : function;
 }.
 
 Instance etaAbsState : Settable _ := settable! mk_abs_state
@@ -77,7 +79,9 @@ Instance etaAbsState : Settable _ := settable! mk_abs_state
   abs_heap_base;
   abs_below_stack_guard_size;
   abs_above_stack_guard_size;
-  abs_above_heap_guard_size
+  abs_above_heap_guard_size ;
+  abs_prog;
+  abs_func
 >.
 
 Definition abs_state_eq_dec : forall (x y : abs_state), {x=y} + {x<>y}.
@@ -89,6 +93,10 @@ Definition abs_state_eqb (a : abs_state) (b : abs_state) : bool :=
   then true
   else false.
 
+Program Definition empty_func :=
+{| V := nil; E := nil |}.
+Next Obligation. inversion H. Qed.
+
 Definition bot_abs_state := {|
   abs_regs := t_empty bot_info;
   abs_stack := nil;
@@ -97,7 +105,10 @@ Definition bot_abs_state := {|
   abs_heap_base := 0;
   abs_below_stack_guard_size := 0;
   abs_above_stack_guard_size := 0;
-  abs_above_heap_guard_size := 0;
+  abs_above_heap_guard_size := 0; 
+
+  abs_prog := nil;
+  abs_func := empty_func;
 |}.
 
 Definition top_abs_state := {|
@@ -108,10 +119,13 @@ Definition top_abs_state := {|
   abs_heap_base := 0;
   abs_below_stack_guard_size := 0;
   abs_above_stack_guard_size := 0;
-  abs_above_heap_guard_size := 0;
+  abs_above_heap_guard_size := 0; 
+
+  abs_prog := nil;
+  abs_func := empty_func;
 |}.
 
-Definition init_abs_state heap_base below_stack above_stack above_heap := {|
+Definition init_abs_state heap_base below_stack above_stack above_heap f p := {| 
 (* Definition init_abs_state := {| *)
   abs_regs := t_update register_eq_dec (t_empty top_info) rdx abs_heap_base_info;
   abs_stack := nil;
@@ -120,7 +134,10 @@ Definition init_abs_state heap_base below_stack above_stack above_heap := {|
   abs_heap_base := heap_base;
   abs_below_stack_guard_size := below_stack;
   abs_above_stack_guard_size := above_stack;
-  abs_above_heap_guard_size := above_heap;
+  abs_above_heap_guard_size := above_heap; 
+
+  abs_prog := p;
+  abs_func := f
 |}.
 
 Definition expand_abs_stack (s : abs_state) (i : nat) : abs_state :=
@@ -283,27 +300,27 @@ Definition initialize_worklist (cfg : cfg_ty) : total_map node_ty abs_state :=
 Reserved Notation " i '/' st 'v-->' st' "
                   (at level 40, st' at level 39).
 
-Definition instr_class_flow_function (i : instr_ty) (s : abs_state) : abs_state :=
+Definition instr_class_flow_function (i : instr_class) (s : abs_state) : abs_state :=
 match (abs_lifted_state s) with
 | sub_state =>
-  match i.(instr) with
-  | Heap_Read r_dst _ _ _ => set_register_info s r_dst top_info
-  | Heap_Write _ _ _ _ => s
-  | Heap_Check r_src => set_register_info s r_src abs_heap_bounded_info
-  | Call_Check r_src => set_register_info s r_src abs_cf_bounded_info
-  | Reg_Move r_dst r_src => set_register_info s r_dst (get_register_info s r_src)
-  | Reg_Write r_dst _ => set_register_info s r_dst top_info
-  | Stack_Expand_Static i => expand_abs_stack s i
-  | Stack_Expand_Dynamic i => expand_abs_stack s i
-  | Stack_Contract i => contract_abs_stack s i
-  | Stack_Read r_dst i => set_register_info s r_dst (get_stack_info s i)
-  | Stack_Write i r_src => set_stack_info s i (get_register_info s r_src)
-  | Op op rs_dst rs_src => fold_left (fun s r => set_register_info s r top_info) rs_dst s
-  | Indirect_Call reg => clear_registers_info s
-  | Direct_Call fname => clear_registers_info s
-  | Branch _ _ _ => s
-  | Jmp _ => s
-  | Ret => s
+  match i with
+  | Heap_Read _ r_dst _ _ _ => set_register_info s r_dst top_info
+  | Heap_Write _ _ _ _ _ => s
+  | Heap_Check _ r_src => set_register_info s r_src abs_heap_bounded_info
+  | Call_Check _ r_src => set_register_info s r_src abs_cf_bounded_info
+  | Reg_Move _ r_dst r_src => set_register_info s r_dst (get_register_info s r_src)
+  | Reg_Write _ r_dst _ => set_register_info s r_dst top_info
+  | Stack_Expand_Static _ i => expand_abs_stack s i
+  | Stack_Expand_Dynamic _ i => expand_abs_stack s i
+  | Stack_Contract _ i => contract_abs_stack s i
+  | Stack_Read _ r_dst i => set_register_info s r_dst (get_stack_info s i)
+  | Stack_Write _ i r_src => set_stack_info s i (get_register_info s r_src)
+  | Op _ op rs_dst rs_src => fold_left (fun s r => set_register_info s r top_info) rs_dst s
+  | Indirect_Call _ reg => clear_registers_info s
+  | Direct_Call _ fname => clear_registers_info s
+  | Branch _ _ _ _ => s
+  | Jmp _ _ => s
+  | Ret _ => s
   end
 | _ => s
 end.
@@ -370,6 +387,8 @@ Inductive leq_abs_state : abs_state -> abs_state -> Prop :=
   (abs_below_stack_guard_size s1) = (abs_below_stack_guard_size s2) ->
   (abs_above_stack_guard_size s1) = (abs_above_stack_guard_size s2) ->
   (abs_above_heap_guard_size s1) = (abs_above_heap_guard_size s2) ->
+  (abs_prog s1) = (abs_prog s2) ->
+  (abs_func s1) = (abs_func s2) ->
   (forall reg, leq_info (get_register_info s1 reg) (get_register_info s2 reg)) ->
   (forall i, leq_info (get_stack_info s1 i) (get_stack_info s2 i)) ->
   length (abs_stack s1) = length (abs_stack s2) ->
@@ -450,35 +469,38 @@ match (abs_lifted_state s) with
 | top_state => false
 | sub_state =>
   match i with
-  | Heap_Read _ r_offset r_index r_base =>
-    andb (BinarySet_eqb (get_register_info s r_base).(is_heap_base) bottom)
-      (andb (BinarySet_eqb (get_register_info s r_index).(heap_bounded) bottom)
-        (BinarySet_eqb (get_register_info s r_offset).(heap_bounded) bottom))
-  | Heap_Write r_offset r_index r_base _ =>
-    andb (BinarySet_eqb (get_register_info s r_base).(is_heap_base) bottom)
-      (andb (BinarySet_eqb (get_register_info s r_index).(heap_bounded) bottom)
-        (BinarySet_eqb (get_register_info s r_offset).(heap_bounded) bottom))
-  | Heap_Check _ => true
-  | Call_Check _ => true
-  | Reg_Move _ _ => true
-  | Reg_Write _ _ => true
-  | Stack_Expand_Static i => leb i (abs_above_stack_guard_size s)
-  | Stack_Expand_Dynamic i => true
-  | Stack_Contract i =>
+  | Heap_Read _ r_dst r_offset r_index r_base => 
+    (BinarySet_eqb (get_register_info s r_base).(is_heap_base) bottom) &&
+    (BinarySet_eqb (get_register_info s r_index).(heap_bounded) bottom) &&
+    (BinarySet_eqb (get_register_info s r_offset).(heap_bounded) bottom) &&
+    negb (register_eqb r_dst rsp)
+  | Heap_Write _ r_offset r_index r_base _ =>
+    (BinarySet_eqb (get_register_info s r_base).(is_heap_base) bottom) &&
+    (BinarySet_eqb (get_register_info s r_index).(heap_bounded) bottom) &&
+    (BinarySet_eqb (get_register_info s r_offset).(heap_bounded) bottom) 
+  | Heap_Check _ r_src => negb (register_eqb r_src rsp)
+  | Call_Check _ _ => true
+  | Reg_Move _ r_dst _ => negb (register_eqb r_dst rsp)
+  | Reg_Write _ r_dst _ => negb (register_eqb r_dst rsp)
+  | Stack_Expand_Static _ i => leb i (abs_above_stack_guard_size s)
+  | Stack_Expand_Dynamic _ i => true
+  | Stack_Contract _ i =>
     leb i (length s.(abs_stack))
-  | Stack_Read _ i =>
-    ltb i ((length s.(abs_stack)) + (abs_below_stack_guard_size s))
-  | Stack_Write i _ =>
+  | Stack_Read _ r_dst i =>
+    ltb i ((length s.(abs_stack)) + (abs_below_stack_guard_size s)) &&
+    negb (register_eqb r_dst rsp)
+  | Stack_Write _ i _ =>
     ltb i (length s.(abs_stack))
-  | Op _ _ _ => true
-  | Indirect_Call reg =>
-    andb (BinarySet_eqb (get_register_info s reg).(cf_bounded) bottom)
-      (BinarySet_eqb (get_register_info s rdi).(is_heap_base) bottom)
-  | Direct_Call fname =>
+  | Op _ _ rs_dst _ => forallb (fun r => negb (register_eqb rsp r)) rs_dst
+  | Indirect_Call _ reg =>
+    (BinarySet_eqb (get_register_info s reg).(cf_bounded) bottom) &&
+    (BinarySet_eqb (get_register_info s rdi).(is_heap_base) bottom)
+  | Direct_Call _ fname =>
+    (fname <? length (abs_prog s)) &&
     BinarySet_eqb (get_register_info s rdi).(is_heap_base) bottom (* TODO: do we need to check that the function name is defined *)
-  | Branch _ _ _ => true
-  | Jmp _ => true
-  | Ret =>
+  | Branch _ _ t_label f_label => ltb t_label (length (V (abs_func s))) && ltb f_label (length (V (abs_func s)))
+  | Jmp _ j_label => ltb j_label (length (V (abs_func s)))
+  | Ret _ =>
     eqb (length s.(abs_stack)) 0
 end
 end.
@@ -486,7 +508,7 @@ end.
 Fixpoint basic_block_verifier (bb : basic_block) (s : abs_state) : bool :=
 match bb with
 | nil => true
-| i :: bb' => andb (instr_class_verifier i.(instr) s) (basic_block_verifier bb' (instr_class_flow_function i s))
+| i :: bb' => andb (instr_class_verifier i s) (basic_block_verifier bb' (instr_class_flow_function i s))
 end.
 
 Fixpoint forall2b {A B} (f : A -> B -> bool) (aa : list A) (bb : list B) : bool :=
@@ -533,10 +555,10 @@ match (least_fixpoint abs_st f) with
 end.
 
 Definition program_verifier (p : program) (abs_st : abs_state) : bool :=
-forallb (fun f => function_verifier f abs_st) p.(Funs).
+forallb (fun f => function_verifier f abs_st) p.
 
 Lemma program_verifier_impl_function_verifier: forall abs_st p f,
-  In f p.(Funs) ->
+  In f p ->
   program_verifier p abs_st = true ->
   function_verifier f abs_st = true.
 Proof.
@@ -575,7 +597,7 @@ Lemma basic_block_verifier_impl_instr_class_verifier: forall abs_st abs_st' bb i
 
   (exists fixpoint_list,
     In abs_st' fixpoint_list ->
-    instr_class_verifier i.(instr) abs_st' = true).
+    instr_class_verifier i abs_st' = true).
 Proof.
   intros. unfold basic_block_verifier in H0. induction bb.
   - Search (In _ nil). apply in_nil in H. eauto.

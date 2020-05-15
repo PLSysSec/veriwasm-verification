@@ -40,12 +40,15 @@ Record state := mkState {
   max_heap_size : nat;
   above_heap_guard_size : nat;
   heap_base_gt_guard : heap_base > below_heap_guard_size;
-  heap_size_eq_guard : max_heap_size = above_heap_guard_size;
+  heap_size_eq_guard : max_heap_size = above_heap_guard_size; 
 (*  function_table : function_table_ty; *)
   error : bool;
 
-  program : program;
-  call_stack : list nat;
+  prog : program;
+  func : function;
+  call_stack : list function;
+  (* func_in_prog: In func prog; *)
+
   stack_size : nat;
   frame_size : nat;
   frames : list nat;
@@ -73,8 +76,10 @@ Instance etaState : Settable _ := settable! mkState
 (*  function_table; *)
   error;
 
-  program;
+  prog;
+  func;
   call_stack;
+  (* func_in_prog; *)
   stack_size;
   frame_size;
   frames
@@ -88,7 +93,7 @@ pow 2 32.
 Definition zero : data_ty :=
 0.
 
-Program Definition start_state p : state :=
+Program Definition start_state p f : state :=
 {|
   regs := t_empty zero;
 (*  flags : flags_ty; *)
@@ -108,7 +113,10 @@ Program Definition start_state p : state :=
 (*  function_table := empty; *)
   error := false;
 
-  program := p;
+  prog := p;
+  func := f;
+  (* func_in_prog := f_in_p; *)
+
   call_stack := nil;
   stack_size := 0;
   frame_size := 0;
@@ -126,10 +134,8 @@ Definition get_register (s : state) (r : register) : data_ty :=
 Definition set_register (s : state) (r : register) (v : data_ty) : state :=
 s <| regs := t_update register_eq_dec s.(regs) r v |>.
 
-(*
-Definition set_flags (s : state) (f : flags_ty) : state :=
-s <| flags := f |>.
-*)
+Definition set_error_state (s : state) : state :=
+s <| error := true |>.
 
 Definition expand_stack (s : state) (i : nat) : state :=
   set_register 
@@ -144,8 +150,8 @@ end.
 
 Definition contract_stack (s : state) (i : nat) : state :=
 set_register
-  (s <| stack ::= removelast_n i |> <| frame_size ::= sub i |> <| stack_size ::= sub i |>)
-  rsp (get_register s rsp).
+  (s <| stack ::= removelast_n i |> <| frame_size := (frame_size s) - i |> <| stack_size := (stack_size s) - i |>)
+  rsp ((get_register s rsp) - i).
 
 (* TODO: we don't actually return 0 for default here, we should
  * signal a trap (and exit?) *)
@@ -169,20 +175,23 @@ Proof.
     rewrite Minus.minus_plus. Search (_ - _). rewrite Nat.sub_diag. reflexivity.
 Qed.
 
-Definition push_frame st : state :=
-  st <| frame_size := 0 |> <| frames ::= cons (frame_size st) |>.
+Definition push_frame st f : state :=
+  st <| frame_size := 0 |> <| frames ::= cons (frame_size st) |> 
+    <| func := f |> <| call_stack ::= cons (func st) |>  (*<| func_in_prog := f_in_p |> *).
+
+Program Definition empty_func :=
+{| V := nil; E := nil |}.
+Next Obligation. inversion H. Qed.
 
 Definition pop_frame st : state :=
-  st <| frame_size := hd 0 (frames st) |> <| frames := tl (frames st) |>.
+  st <| frame_size := hd 0 (frames st) |> <| frames := tl (frames st) |>
+    <| func := hd empty_func (call_stack st) |> <| call_stack := tl (call_stack st) |>.
 
 Definition read_heap (s : state) (i : address_ty) : data_ty :=
 s.(heap) i.
 
 Definition write_heap (s : state) (i : address_ty) (v : data_ty) : state :=
 s <| heap := t_update Nat.eq_dec s.(heap) i v |>.
-
-Definition set_error_state (s : state) : state :=
-s <| error := true |>.
 
 (*Definition fourGB : int64 := (Word.shl (Word.repr 2) (Word.repr 32)). *)
 
@@ -241,7 +250,7 @@ Qed.
 
 Definition run_heap_read st r_dst r_offset r_index r_base : state :=
 let index := (get_register st r_offset) + (get_register st r_index) + (get_register st r_base) in
-let base := heap_base st in
+let base := heap_base st in 
 if orb (andb (leb (base + (max_heap_size st)) index) (ltb index (base + (max_heap_size st) + (above_heap_guard_size st))))
       (andb (ltb index base) (leb (base - (below_heap_guard_size st)) index))
 then set_error_state st
@@ -257,7 +266,7 @@ else write_heap st index (get_register st r_val).
 
 Definition run_call_check st r_src : state :=
 (*match nth_error (program st) (get_register st r_src) with *)
-if ltb (get_register st r_src) (List.length (program st).(Funs))
+if ltb (get_register st r_src) (List.length (prog st))
 then st
 else set_error_state st.
 
@@ -281,7 +290,7 @@ then set_error_state st
 else write_stack st i (get_register st r_src).
 
 Definition get_function st fname : option function :=
-nth_error (program st).(Funs) fname.
+nth_error (prog st) fname.
 
 Definition get_first_block f : basic_block :=
 match (V f) with
@@ -290,159 +299,110 @@ match (V f) with
 end.
 
 Definition get_basic_block st label : option basic_block := 
-match (call_stack st) with
-| nil => None
-| fname :: _ => 
-  match (get_function st fname) with
-  | None => None
-  | Some f => nth_error (V f) label
-  end
-end.
+nth_error (V (func st)) label.
 
 Reserved Notation " i '/' st 'i-->' i' '/' st' "
                   (at level 39, st at level 38, i' at level 38).
-Inductive istep : (list instr_ty * state) -> (list instr_ty * state) -> Prop :=
-| I_Heap_Read: forall st is r_base r_index r_offset r_dst index n,
+Inductive istep : (list instr_class * state) -> (list instr_class * state) -> Prop :=
+| I_Heap_Read: forall st is pp r_base r_index r_offset r_dst index, 
+  r_dst <> rsp ->
   index = (get_register st r_base) + (get_register st r_index) + (get_register st r_offset) ->
   (heap_base st) <= index ->
   index < (heap_base st) + (max_heap_size st) ->
-  ({| instr := (Heap_Read r_dst r_offset r_index r_base);
-      addr := n |}
-     :: is) / st i--> is / set_register st r_dst (read_heap st index)
-| I_Heap_Read_Guard: forall st is r_base r_index r_offset r_dst index n,
+  ((Heap_Read pp r_dst r_offset r_index r_base) :: is) / st i--> is / set_register st r_dst (read_heap st index)
+| I_Heap_Read_Guard: forall st is pp r_base r_index r_offset r_dst index,
+  r_dst <> rsp ->
   index = (get_register st r_base) + (get_register st r_index) + (get_register st r_offset) ->
   (heap_base st) + (max_heap_size st) <= index ->
   index < (heap_base st) + (max_heap_size st) + (above_heap_guard_size st) ->
-  ({| instr := (Heap_Read r_dst r_offset r_index r_base);
-      addr := n |}
-     :: is) / st i--> nil / set_error_state st
-| I_Heap_Write: forall st is r_base r_index r_offset r_val index n,
+  ((Heap_Read pp r_dst r_offset r_index r_base) :: is) / st i--> nil / set_error_state st
+| I_Heap_Write: forall st is pp r_base r_index r_offset r_val index,
   index = (get_register st r_base) + (get_register st r_index) + (get_register st r_offset) ->
   (heap_base st) <= index ->
   index < (heap_base st) + (max_heap_size st) ->
-  ({| instr := (Heap_Write r_offset r_index r_base r_val);
-      addr := n |}
-     :: is) / st i--> is / write_heap st index (get_register st r_val)
-| I_Heap_Write_Guard: forall st is r_base r_index r_offset r_val index n,
+  ((Heap_Write pp r_offset r_index r_base r_val) :: is) / st i--> is / write_heap st index (get_register st r_val)
+| I_Heap_Write_Guard: forall st is pp r_base r_index r_offset r_val index,
   index = (get_register st r_base) + (get_register st r_index) + (get_register st r_offset) ->
   (heap_base st) + (max_heap_size st) <= index ->
   index < (heap_base st) + (max_heap_size st) + (above_heap_guard_size st) ->
-  ({| instr := (Heap_Write r_offset r_index r_base r_val);
-      addr := n |}
-     :: is) / st i--> nil / set_error_state st
-| I_Heap_Check: forall st is r_src n,
-    ({| instr := (Heap_Check r_src);
-        addr := n|}
-       :: is) / st i--> is / set_register st r_src ((get_register st r_src) mod (above_heap_guard_size st))
-| I_Call_Check: forall st is r_src n,
-  get_register st r_src < List.length (program st).(Funs) ->
-  ({| instr := (Call_Check r_src);
-      addr := n |}:: is) / st i--> is / st
-| I_Call_Check_Bad: forall st is r_src n,
-  get_register st r_src >= List.length (program st).(Funs) ->
-  ({| instr := (Call_Check r_src);
-      addr := n |}
-     :: is) / st i--> nil / set_error_state st
-| I_Reg_Move: forall st is r_src r_dst n,
-    ({|instr := (Reg_Move r_dst r_src);
-       addr := n |}
-       :: is) / st i--> is / set_register st r_dst (get_register st r_src)
-| I_Reg_Write: forall st is r_dst val n,
-    ({| instr := (Reg_Write r_dst val);
-        addr := n |}
-       :: is) / st i--> is / set_register st r_dst (value_to_data st val)
-| I_Stack_Expand_Static: forall st is i n,
-    ({| instr := (Stack_Expand_Static i);
-        addr := n |}
-       :: is) / st i--> is / expand_stack st i
-| I_Stack_Expand_Dynamic: forall st is i n,
+  ((Heap_Write pp r_offset r_index r_base r_val) :: is) / st i--> nil / set_error_state st
+| I_Heap_Check: forall st is pp r_src,
+  r_src <> rsp ->
+  ((Heap_Check pp r_src) :: is) / st i--> is / set_register st r_src ((get_register st r_src) mod (above_heap_guard_size st))
+| I_Call_Check: forall st is pp r_src,
+  get_register st r_src < List.length (prog st) ->
+  ((Call_Check pp r_src) :: is) / st i--> is / st
+| I_Call_Check_Bad: forall st is pp r_src,
+  get_register st r_src >= List.length (prog st) ->
+  ((Call_Check pp r_src) :: is) / st i--> nil / set_error_state st
+| I_Reg_Move: forall st is pp r_src r_dst,
+  r_dst <> rsp ->
+  ((Reg_Move pp r_dst r_src) :: is) / st i--> is / set_register st r_dst (get_register st r_src)
+| I_Reg_Write: forall st is pp r_dst val,
+  r_dst <> rsp ->
+  ((Reg_Write pp r_dst val) :: is) / st i--> is / set_register st r_dst (value_to_data st val)
+| I_Stack_Expand_Static: forall st is pp i,
+  ((Stack_Expand_Static pp i) :: is) / st i--> is / expand_stack st i
+| I_Stack_Expand_Dynamic: forall st is pp i,
   i + (stack_size st) <= (max_stack_size st) ->
-  ({| instr := (Stack_Expand_Dynamic i);
-      addr := n |}
-     :: is) / st i--> is / expand_stack st i
-| I_Stack_Expand_Dynamic_Guard: forall st is i n,
+  ((Stack_Expand_Dynamic pp i) :: is) / st i--> is / expand_stack st i
+| I_Stack_Expand_Dynamic_Guard: forall st is pp i,
   i + (stack_size st) > (max_stack_size st) ->
-  ({| instr := (Stack_Expand_Dynamic i);
-      addr := n |}
-     :: is) / st i--> nil / set_error_state st
-| I_Stack_Contract: forall st is i n,
-    ({| instr := (Stack_Contract i);
-        addr := n |}
-       :: is) / st i--> is / contract_stack st i
-| I_Stack_Read: forall st is i r_dst n,
+  ((Stack_Expand_Dynamic pp i) :: is) / st i--> nil / set_error_state st
+| I_Stack_Contract: forall st is pp i,
+  ((Stack_Contract pp i) :: is) / st i--> is / contract_stack st i
+| I_Stack_Read: forall st is pp i r_dst,
+  r_dst <> rsp ->
   (stack_base st) < (get_register st rsp) - i ->
   (get_register st rsp) - i < (stack_base st) + (stack_size st) ->
-  ({| instr := (Stack_Read r_dst i);
-      addr := n |}
-     :: is) / st i--> is / set_register st r_dst (read_stack st i)
-| I_Stack_Read_Below_Guard: forall st is i r_dst n,
+  ((Stack_Read pp r_dst i) :: is) / st i--> is / set_register st r_dst (read_stack st i)
+| I_Stack_Read_Below_Guard: forall st is pp i r_dst,
+  r_dst <> rsp ->
   (stack_base st) - (below_stack_guard_size st) < (get_register st rsp) - i ->
   (get_register st rsp) - i < (stack_base st) ->
-  ({| instr := (Stack_Read r_dst i);
-      addr := n |}
-     :: is) / st i--> is / set_error_state st
-| I_Stack_Read_Above_Guard: forall st is i r_dst n,
+  ((Stack_Read pp r_dst i) :: is) / st i--> is / set_error_state st
+| I_Stack_Read_Above_Guard: forall st is pp i r_dst,
+  r_dst <> rsp ->
   (stack_base st) + (max_stack_size st) < (get_register st rsp) - i ->
   (get_register st rsp) - i < (stack_base st) + (max_stack_size st) + (above_stack_guard_size st) ->
-  ({| instr := (Stack_Read r_dst i);
-      addr := n |}
-     :: is) / st i--> is / set_error_state st
-| I_Stack_Write: forall st is i r_dst n,
+  ((Stack_Read pp r_dst i) :: is) / st i--> is / set_error_state st
+| I_Stack_Write: forall st is pp i r_src,
   (stack_base st) < (get_register st rsp) - i ->
   (get_register st rsp) - i < (stack_base st) + (max_stack_size st) ->
-  ({| instr := (Stack_Write i r_dst);
-      addr := n |}
-     :: is) / st i--> is / set_register st r_dst (read_stack st i)
-| I_Stack_Write_Below_Guard: forall st is i r_dst n,
+  ((Stack_Write pp i r_src) :: is) / st i--> is / write_stack st i (get_register st r_src)
+| I_Stack_Write_Below_Guard: forall st is pp i r_src,
   (stack_base st) - (below_stack_guard_size st) < (get_register st rsp) - i ->
   (get_register st rsp) - i < (stack_base st) ->
-  ({| instr := (Stack_Write i r_dst);
-      addr := n |}
-     :: is) / st i--> is / set_error_state st
-| I_Stack_Write_Above_Guard: forall st is i r_dst n,
+  ((Stack_Write pp i r_src) :: is) / st i--> is / set_error_state st
+| I_Stack_Write_Above_Guard: forall st is pp i r_src,
   (stack_base st) + (max_stack_size st) < (get_register st rsp) - i ->
   (get_register st rsp) - i < (stack_base st) + (max_stack_size st) + (above_stack_guard_size st) ->
-  ({| instr := (Stack_Write i r_dst);
-      addr := n |}
-     :: is) / st i--> is / set_error_state st
-| I_Op: forall st is op rs_dst rs_src n,
-    ({| instr := (Op op rs_dst rs_src);
-        addr := n |}
-       :: is) / st i--> is / run_op st op rs_dst rs_src
-| I_Branch_True: forall st is c t_label f_label t_bb f_bb n,
+  ((Stack_Write pp i r_src) :: is) / st i--> is / set_error_state st
+| I_Op: forall st is pp op rs_dst rs_src,
+  ~ In rsp rs_dst ->
+  ((Op pp op rs_dst rs_src) :: is) / st i--> is / run_op st op rs_dst rs_src
+| I_Branch_True: forall st is pp c t_label f_label t_bb f_bb,
   get_basic_block st t_label = Some t_bb ->
   get_basic_block st f_label = Some f_bb ->
   run_conditional st c = true ->
-  ({| instr := (Branch c t_label f_label);
-      addr := n |}
-     :: is) / st i--> (t_bb ++ is) / st
-| I_Branch_False: forall st is c t_label f_label t_bb f_bb n,
+  ((Branch pp c t_label f_label) :: is) / st i--> (t_bb ++ is) / st
+| I_Branch_False: forall st is pp c t_label f_label t_bb f_bb,
   get_basic_block st t_label = Some t_bb ->
   get_basic_block st f_label = Some f_bb ->
   run_conditional st c = false ->
-  ({| instr := (Branch c t_label f_label);
-      addr := n |}
-     :: is) / st i--> (f_bb ++ is) / st
-| I_Jmp: forall st is j_label j_bb n,
+  ((Branch pp c t_label f_label) :: is) / st i--> (f_bb ++ is) / st
+| I_Jmp: forall st is pp j_label j_bb,
   get_basic_block st j_label = Some j_bb ->
-  ({| instr := (Jmp j_label);
-      addr := n |}
-     :: is) / st i--> (j_bb ++ is) / st
-| I_Indirect_Call: forall st is reg f n,
+  ((Jmp pp j_label) :: is) / st i--> (j_bb ++ is) / st
+| I_Indirect_Call: forall st is pp reg f,
   get_function st (get_register st reg) = Some f ->
-  ({| instr := (Indirect_Call reg);
-      addr := n |}
-     :: is) / st i--> ((get_first_block f) ++ is) / push_frame (cons_stack st 1)
-| I_Direct_Call: forall st is fname f n,
+  ((Indirect_Call pp reg) :: is) / st i--> ((get_first_block f) ++ is) / push_frame (cons_stack st 1) f
+| I_Direct_Call: forall st is pp fname f,
   get_function st fname = Some f ->
-  ({| instr := (Direct_Call fname);
-      addr := n |}
-     :: is) / st i--> ((get_first_block f) ++ is) / push_frame (cons_stack st 1)
-| I_Ret: forall st is n,
+  ((Direct_Call pp fname) :: is) / st i--> ((get_first_block f) ++ is) / push_frame (cons_stack st 1) f
+| I_Ret: forall st is pp,
   (read_stack st 0) = 1 ->
-  ({| instr := Ret;
-     addr := n; |}
-    :: is) / st i--> is / pop_frame st
+  ((Ret pp) :: is) / st i--> is / pop_frame st
 
 (*| I_Indirect_Call_Good: forall st is reg fname f,
     (get_register st reg) = fname ->
@@ -507,15 +467,32 @@ Inductive istep : (list instr_ty * state) -> (list instr_ty * state) -> Prop :=
 *)
   where " i '/' st 'i-->' i' '/' st' " := (istep (i,st) (i',st')).
 
-Inductive istep_fuel : ((list instr_ty * state) * nat) -> ((list instr_ty * state) * nat) -> Prop :=
+Lemma get_set_reg : forall st r1 r2 v,
+  r1 <> r2 ->
+  get_register (set_register st r2 v) r1 = get_register st r1.
+Proof.
+  intros. simpl. apply register_get_after_set_neq. auto.
+Qed.
+
+Lemma istep_preserves_stack_eq_invariant : forall i is is' st st',
+  (i :: is) / st i--> is' / st' ->
+  (get_register st rsp) = (stack_size st) ->
+  (get_register st' rsp) = (stack_size st').
+Proof.
+  intros. inversion H; 
+  try (subst);
+  try (rewrite get_set_reg);
+  try (simpl; rewrite register_get_after_set_eq); eauto.
+  admit.
+Admitted.
+
+Inductive istep_fuel : ((list instr_class * state) * nat) -> ((list instr_class * state) * nat) -> Prop :=
 | IFuel_Base : forall i s,
     istep_fuel ((i, s), 0) ((i, s), 0)
 | IFuel_Step : forall i s i' s' fuel fuel',
     istep (i, s) (i', s') ->
     fuel = S fuel' ->
-    istep_fuel ((i, s), fuel) ((i', s'), fuel')
-| IFuel_End : forall s fuel,
-    istep_fuel (nil, s, fuel) (nil, s, 0).
+    istep_fuel ((i, s), fuel) ((i', s'), fuel').
 
 Definition relation (X : Type) := X -> X -> Prop.
 
@@ -532,7 +509,7 @@ Notation " i '/' st '-->*' i' '/' st' " :=
    (multi istep  (i,st) (i',st'))
    (at level 39, st at level 38, i' at level 38).
 
-Inductive imultistep_fuel : ((list instr_ty * state) * nat) -> ((list instr_ty * state) * nat) -> Prop :=
+Inductive imultistep_fuel : ((list instr_class * state) * nat) -> ((list instr_class * state) * nat) -> Prop :=
 | multi_base : forall i s i' s' fuel fuel',
     istep_fuel (i, s, fuel) (i', s', fuel') ->
     imultistep_fuel (i, s, fuel) (i', s', fuel')
