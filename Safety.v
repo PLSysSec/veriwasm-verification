@@ -336,23 +336,32 @@ Theorem verified_program_step :
       imultistep_fuel ((run_function p f), S fuel) (is', st', 0).
 Proof.
   intros.
-  eexists ?[is']. eexists ?[st'].
   unfold run_function. unfold run_function in H1.
   pose proof imultistep_finish' as Hfinish.
-  specialize Hfinish with fuel (first_block f) (start_state p) is1 st1 ?is' ?st'.
-  apply Hfinish. auto.
-  constructor.
-  case is1; eauto.
-  - admit.
-  - intros.
-    pose proof verified_impl_istep as Hstep.
-    specialize Hstep with i l st1.
-    apply IFuel_Step; auto.
-    destruct Hstep. admit.
-    destruct H2.
-
-
-Admitted.
+  destruct (first_block f) eqn:Hfirst.
+  - repeat eexists. constructor. apply IFuel_End.
+  - destruct is1 eqn:Hstream.
+    + exists nil. exists st1.
+      eapply imultistep_finish'. apply H1.
+      constructor. apply IFuel_End.
+    + pose proof verified_impl_istep as Hstep.
+      specialize Hstep with i0 l0 st1.
+      pose proof verifier_fixpoint_relation as Hfixpoint.
+      specialize Hfixpoint with i0. destruct Hfixpoint as [fixpoint Hfixpoint].
+      pose proof leq_abs_state_verifies as Hleq.
+      specialize Hleq with i0.(instr) fixpoint (abstractify st1).
+      specialize Hfixpoint with p f l0 st1 fuel.
+      apply Hfixpoint in H as [].
+      apply Hleq in H.
+      apply Hstep in H. rewrite <- Hstream in H. destruct H as []. destruct H as [].
+      eexists ?[is']. eexists ?[st'].
+      specialize Hfinish with fuel (first_block f) (start_state p) is1 st1 ?is' ?st'.
+      rewrite <- Hfirst. apply Hfinish. rewrite Hfirst. rewrite Hstream. apply H1.
+      constructor. apply IFuel_Step.
+      apply H.
+      auto. auto. auto.
+      unfold run_function. rewrite Hfirst. apply H1.
+Qed.
 
 Theorem verified_program :
   forall p f fuel,
@@ -362,10 +371,11 @@ Theorem verified_program :
       imultistep_fuel ((run_function p f), fuel) (is', st', 0).
 Proof.
   intros. induction fuel.
-  - admit. (* TODO: constructor messes the next goal up for some reason *)
-  - eapply verified_program_step; auto.
-    admit. (* TODO: Not sure how to introduce this, but should be trivial *)
-Admitted.
+  - repeat eexists. constructor. apply IFuel_Base.
+  - destruct IHfuel. destruct H1.
+    eapply verified_program_step; auto.
+    eapply H1.
+Qed.
 
 (*
 Lemma instr_class_verifier_shows_instr_class_safety: forall st abs_st i,
