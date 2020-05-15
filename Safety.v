@@ -46,6 +46,9 @@ Definition abstractify (s : state) : abs_state :=
    abs_below_stack_guard_size := (below_stack_guard_size s);
    abs_above_stack_guard_size := (above_stack_guard_size s);
    abs_above_heap_guard_size := (above_heap_guard_size s);
+   abs_program := Some s.(program);
+   abs_frame_size := s.(frame_size);
+   abs_call_stack := s.(call_stack);
 |}.
 
 Lemma BinarySet_eqb_eq: forall a b,
@@ -155,6 +158,14 @@ Proof.
   apply BinarySet_eqb_eq in H2. auto.
 Qed.
 
+Lemma rsp_stack_size :
+  forall p f is st fuel,
+    program_verifier p (abstractify (start_state p)) = true ->
+    In f p.(Funs) ->
+    imultistep_fuel ((run_function p f), fuel) (is, st, 0) ->
+    (st.(regs)) rsp = st.(stack_base) + (length st.(stack)).
+Admitted.
+
 Lemma verified_impl_istep : forall i is st,
   instr_class_verifier i.(instr) (abstractify st) = true ->
   exists is' st', (i :: is) / st i--> is' / st'.
@@ -207,14 +218,26 @@ Proof.
     + repeat eexists. eapply I_Stack_Expand_Dynamic. Search (_ <=? _). apply Compare_dec.leb_complete. auto.
     + repeat eexists. eapply I_Stack_Expand_Dynamic_Guard. apply Compare_dec.leb_complete_conv. auto.
   - repeat eexists. apply I_Stack_Contract.
-  - admit.
-  - admit.
+  - repeat eexists. apply I_Stack_Read.
+    + apply PeanoNat.Nat.ltb_lt in H. admit.
+    + admit.
+  - repeat eexists. apply I_Stack_Write.
+    + admit.
+    + admit.
   - repeat eexists. apply I_Op.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
-  - admit.
+  - apply andb_prop in H as [Hcf Hheap]. apply BinarySet_eqb_eq in Hcf. apply BinarySet_eqb_eq in Hheap.
+    unfold is_cf_bounded_data in Hcf. unfold is_heap_base_data in Hheap.
+    apply if_thn_true in Hcf. apply if_thn_true in Hheap. apply PeanoNat.Nat.ltb_lt in Hcf.
+    pose proof Coqlib.nth_error_lt as Hnth.
+    specialize Hnth with ControlFlowGraph (get_register st r) (Funs (program st)).
+    unfold get_register in Hnth. apply Hnth in Hcf. destruct Hcf.
+    repeat eexists. apply I_Indirect_Call. unfold get_function. apply H.
+  - repeat eexists. apply I_Direct_Call. admit.
+  - repeat eexists. case (run_conditional st c) eqn:Hcond.
+    + (* Needs well-formedness apply I_Branch_True. *) admit.
+    + (* Needs well-formedness apply I_Branch_False. *) admit.
+  - repeat eexists. apply I_Jmp. unfold get_basic_block. admit.
+  - repeat eexists. apply I_Ret. apply EqNat.beq_nat_true in H.
 Admitted.
 
 Lemma verified_program_impl_verified_instr_class: forall p f bb i is st,
