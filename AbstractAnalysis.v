@@ -66,6 +66,10 @@ Record abs_state := mk_abs_state {
   abs_below_stack_guard_size : nat;
   abs_above_stack_guard_size : nat;
   abs_above_heap_guard_size : nat;
+
+  abs_program : option program;
+  abs_frame_size : nat;
+  abs_call_stack : list nat;
 }.
 
 Instance etaAbsState : Settable _ := settable! mk_abs_state
@@ -77,7 +81,11 @@ Instance etaAbsState : Settable _ := settable! mk_abs_state
   abs_heap_base;
   abs_below_stack_guard_size;
   abs_above_stack_guard_size;
-  abs_above_heap_guard_size
+  abs_above_heap_guard_size;
+
+  abs_program;
+  abs_frame_size;
+  abs_call_stack
 >.
 
 Definition abs_state_eq_dec : forall (x y : abs_state), {x=y} + {x<>y}.
@@ -98,6 +106,10 @@ Definition bot_abs_state := {|
   abs_below_stack_guard_size := 0;
   abs_above_stack_guard_size := 0;
   abs_above_heap_guard_size := 0;
+
+  abs_program := None;
+  abs_frame_size := 0;
+  abs_call_stack := nil
 |}.
 
 Definition top_abs_state := {|
@@ -109,6 +121,10 @@ Definition top_abs_state := {|
   abs_below_stack_guard_size := 0;
   abs_above_stack_guard_size := 0;
   abs_above_heap_guard_size := 0;
+
+  abs_program := None;
+  abs_frame_size := 0;
+  abs_call_stack := nil;
 |}.
 
 Definition init_abs_state heap_base below_stack above_stack above_heap := {|
@@ -121,6 +137,10 @@ Definition init_abs_state heap_base below_stack above_stack above_heap := {|
   abs_below_stack_guard_size := below_stack;
   abs_above_stack_guard_size := above_stack;
   abs_above_heap_guard_size := above_heap;
+
+  abs_program := None;
+  abs_frame_size := 0;
+  abs_call_stack := nil;
 |}.
 
 Definition expand_abs_stack (s : abs_state) (i : nat) : abs_state :=
@@ -373,6 +393,9 @@ Inductive leq_abs_state : abs_state -> abs_state -> Prop :=
   (forall reg, leq_info (get_register_info s1 reg) (get_register_info s2 reg)) ->
   (forall i, leq_info (get_stack_info s1 i) (get_stack_info s2 i)) ->
   length (abs_stack s1) = length (abs_stack s2) ->
+  (abs_program s1) = (abs_program s2) ->
+  (abs_frame_size s1) = (abs_frame_size s2) ->
+  (abs_call_stack s1) = (abs_call_stack s2) ->
   leq_abs_state s1 s2.
 
 Definition ge_abs_state s1 s2 := leq_abs_state s2 s1.
@@ -384,6 +407,22 @@ Inductive ge_abs_states : list abs_state -> list abs_state -> Prop :=
   ge_abs_state s1 s2 ->
   ge_abs_states ss1 ss2 ->
   ge_abs_states (s1 :: ss1) (s2 :: ss2).
+
+Definition get_function st fname : option function :=
+  match st.(abs_program) with
+  | Some p => nth_error p.(Funs) fname
+  | None => None
+  end.
+
+Definition get_bb st i : option basic_block :=
+  match (abs_call_stack st) with
+  | nil => None
+  | fname :: _ =>
+    match (get_function st fname) with
+    | None => None
+    | Some f => nth_error (V f) i
+    end
+  end.
 
 Require Import Recdef.
 
@@ -475,11 +514,27 @@ match (abs_lifted_state s) with
     andb (BinarySet_eqb (get_register_info s reg).(cf_bounded) bottom)
       (BinarySet_eqb (get_register_info s rdi).(is_heap_base) bottom)
   | Direct_Call fname =>
-    BinarySet_eqb (get_register_info s rdi).(is_heap_base) bottom (* TODO: do we need to check that the function name is defined *)
-  | Branch _ _ _ => true
-  | Jmp _ => true
+    andb (match get_function s fname with
+          | Some _ => true
+          | _ => false
+          end)
+         (BinarySet_eqb (get_register_info s rdi).(is_heap_base) bottom)
+  | Branch _ l1 l2 =>
+    andb (match get_bb s l1 with
+          | Some _ => true
+          | _ => false
+          end)
+         (match get_bb s l1 with
+          | Some _ => true
+          | _ => false
+          end)
+  | Jmp l =>
+    match get_bb s l with
+    | Some _ => true
+    | _ => false
+    end
   | Ret =>
-    eqb (length s.(abs_stack)) 0
+    eqb s.(abs_frame_size) 0
 end
 end.
 

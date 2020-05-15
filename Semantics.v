@@ -169,6 +169,12 @@ Proof.
     rewrite Minus.minus_plus. Search (_ - _). rewrite Nat.sub_diag. reflexivity.
 Qed.
 
+Definition push_call st fname : state :=
+  st <| call_stack ::= cons fname |>.
+
+Definition pop_call st : state :=
+  st <| call_stack := tl (call_stack st) |>.
+
 Definition push_frame st : state :=
   st <| frame_size := 0 |> <| frames ::= cons (frame_size st) |>.
 
@@ -432,14 +438,14 @@ Inductive istep : (list instr_ty * state) -> (list instr_ty * state) -> Prop :=
   get_function st (get_register st reg) = Some f ->
   ({| instr := (Indirect_Call reg);
       addr := n |}
-     :: is) / st i--> ((get_first_block f) ++ is) / push_frame (cons_stack st 1)
+     :: is) / st i--> ((get_first_block f) ++ is) / push_frame (push_call st (get_register st reg))
 | I_Direct_Call: forall st is fname f n,
   get_function st fname = Some f ->
   ({| instr := (Direct_Call fname);
       addr := n |}
-     :: is) / st i--> ((get_first_block f) ++ is) / push_frame (cons_stack st 1)
+     :: is) / st i--> ((get_first_block f) ++ is) / push_frame (push_call st fname)
 | I_Ret: forall st is n,
-  (read_stack st 0) = 1 ->
+  st.(frame_size) = 0 ->
   ({| instr := Ret;
      addr := n; |}
     :: is) / st i--> is / pop_frame st
