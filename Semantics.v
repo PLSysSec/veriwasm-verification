@@ -40,7 +40,7 @@ Record state := mkState {
   max_heap_size : nat;
   above_heap_guard_size : nat;
   heap_base_gt_guard : heap_base > below_heap_guard_size;
-  heap_size_eq_guard : max_heap_size = above_heap_guard_size; 
+  heap_size_eq_guard : max_heap_size = above_heap_guard_size;
 (*  function_table : function_table_ty; *)
   error : bool;
 
@@ -93,7 +93,7 @@ Program Definition start_state p : state :=
   regs := t_empty zero;
 (*  flags : flags_ty; *)
 
-  stack := 1 :: nil;
+  stack := nil;
   below_stack_guard_size := fourGB;
   stack_base := 1 + fourGB;
   max_stack_size := fourGB;
@@ -110,7 +110,7 @@ Program Definition start_state p : state :=
 
   program := p;
   call_stack := nil;
-  stack_size := 1;
+  stack_size := 0;
   frame_size := 0;
   frames := nil;
 |}.
@@ -241,7 +241,7 @@ Qed.
 
 Definition run_heap_read st r_dst r_offset r_index r_base : state :=
 let index := (get_register st r_offset) + (get_register st r_index) + (get_register st r_base) in
-let base := heap_base st in 
+let base := heap_base st in
 if orb (andb (leb (base + (max_heap_size st)) index) (ltb index (base + (max_heap_size st) + (above_heap_guard_size st))))
       (andb (ltb index base) (leb (base - (below_heap_guard_size st)) index))
 then set_error_state st
