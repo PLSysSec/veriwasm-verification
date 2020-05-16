@@ -524,7 +524,7 @@ match (abs_lifted_state s) with
           | Some _ => true
           | _ => false
           end)
-         (match get_bb s l1 with
+         (match get_bb s l2 with
           | Some _ => true
           | _ => false
           end)
