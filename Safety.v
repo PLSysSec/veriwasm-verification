@@ -65,8 +65,8 @@ Lemma leq_abs_state_is_heap_base: forall abs_st abs_st' r,
   is_heap_base (get_register_info abs_st' r) = bottom.
 Proof.
   intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
-  specialize H6 with r. inversion H6. rewrite H11. auto.
-  subst. inversion H9. auto. rewrite H in H9. inversion H9. auto.
+  specialize H6 with r. inversion H6. rewrite H14. auto.
+  subst. inversion H12. auto. rewrite H in H12. inversion H12. auto.
 Qed.
 
 Lemma leq_abs_state_heap_bounded: forall abs_st abs_st' r,
@@ -75,8 +75,8 @@ Lemma leq_abs_state_heap_bounded: forall abs_st abs_st' r,
   heap_bounded (get_register_info abs_st' r) = bottom.
 Proof.
   intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
-  specialize H6 with r. inversion H6. rewrite H11. auto.
-  subst. inversion H10. auto. rewrite H in H10. inversion H10. auto.
+  specialize H6 with r. inversion H6. rewrite H14. auto.
+  subst. inversion H13. auto. rewrite H in H13. inversion H13. auto.
 Qed.
 
 Lemma leq_abs_state_cf_bounded: forall abs_st abs_st' r,
@@ -85,8 +85,8 @@ Lemma leq_abs_state_cf_bounded: forall abs_st abs_st' r,
   cf_bounded (get_register_info abs_st' r) = bottom.
 Proof.
   intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
-  specialize H6 with r. inversion H6. rewrite H11. auto.
-  subst. inversion H11. auto. rewrite H in H11. inversion H11. auto.
+  specialize H6 with r. inversion H6. rewrite H14. auto.
+  subst. inversion H14. auto. rewrite H in H14. inversion H14. auto.
 Qed.
 
 (*
@@ -138,9 +138,10 @@ Proof.
     apply andb_true_intro; split; apply BinarySet_eqb_eq.
     * eapply leq_abs_state_cf_bounded. apply Hleq. apply Hr.
     * eapply leq_abs_state_is_heap_base. apply Hleq. apply Hrdi.
-  - apply BinarySet_eqb_eq in Hv. apply BinarySet_eqb_eq. eapply leq_abs_state_is_heap_base.
-    apply Hleq. apply Hv.
-Qed.
+  - admit.
+  - admit.
+  - admit.
+Admitted.
 
 Lemma unfold_binaryset_eqb: forall b1 b2 b3 b4,
   (BinarySet_eqb b1 b2 && BinarySet_eqb b3 b4)%bool = true ->
@@ -166,11 +167,39 @@ Lemma rsp_stack_size :
     (st.(regs)) rsp = st.(stack_base) + (length st.(stack)).
 Admitted.
 
+Theorem get_function_concrete_abstract :
+  forall s n f,
+    Semantics.get_function s n = Some f ->
+    AbstractAnalysis.get_function (abstractify s) n = Some f.
+Proof.
+  intros. unfold AbstractAnalysis.get_function. unfold get_function in H.
+  unfold abstractify. unfold abs_program. apply H.
+Qed.
+
+Theorem get_function_abstract_concrete :
+  forall s n f,
+    AbstractAnalysis.get_function (abstractify s) n = Some f ->
+    Semantics.get_function s n = Some f.
+Proof.
+  intros. unfold AbstractAnalysis.get_function in H. unfold get_function.
+  unfold abstractify in H. unfold abs_program in H. apply H.
+Qed.
+
+Theorem get_bb_abstract_concrete :
+  forall s n bb,
+    get_bb (abstractify s) n = Some bb ->
+    get_basic_block s n = Some bb.
+Proof.
+  intros. unfold get_basic_block. unfold get_bb in H. unfold abstractify in H.
+  unfold abs_call_stack in H. unfold AbstractAnalysis.get_function in H.
+  unfold abs_program in H. unfold get_function. apply H.
+Qed.
+
 Lemma verified_impl_istep : forall i is st,
   instr_class_verifier i.(instr) (abstractify st) = true ->
   exists is' st', (i :: is) / st i--> is' / st'.
 Proof.
-  intros. destruct i; destruct instr eqn:Hi; unfold instr_class_verifier in H; simpl in H.
+  intros. destruct i eqn:Hibase; destruct instr eqn:Hi; unfold instr_class_verifier in H; simpl in H.
   - apply andb_prop in H as [Hbase Hv]. apply andb_prop in Hv as [Hindex Hoffset].
     apply BinarySet_eqb_eq in Hbase. apply BinarySet_eqb_eq in Hindex.
     apply BinarySet_eqb_eq in Hoffset.
@@ -219,7 +248,7 @@ Proof.
     + repeat eexists. eapply I_Stack_Expand_Dynamic_Guard. apply Compare_dec.leb_complete_conv. auto.
   - repeat eexists. apply I_Stack_Contract.
   - repeat eexists. apply I_Stack_Read.
-    + apply PeanoNat.Nat.ltb_lt in H. admit.
+    + apply PeanoNat.Nat.ltb_lt in H.
     + admit.
   - repeat eexists. apply I_Stack_Write.
     + admit.
@@ -232,11 +261,24 @@ Proof.
     specialize Hnth with ControlFlowGraph (get_register st r) (Funs (program st)).
     unfold get_register in Hnth. apply Hnth in Hcf. destruct Hcf.
     repeat eexists. apply I_Indirect_Call. unfold get_function. apply H.
-  - repeat eexists. apply I_Direct_Call. admit.
-  - repeat eexists. case (run_conditional st c) eqn:Hcond.
-    + (* Needs well-formedness apply I_Branch_True. *) admit.
-    + (* Needs well-formedness apply I_Branch_False. *) admit.
-  - repeat eexists. apply I_Jmp. unfold get_basic_block. admit.
+  - apply andb_prop in H. destruct H.
+    destruct (AbstractAnalysis.get_function (abstractify st) n) eqn: Hget.
+    pose proof get_function_abstract_concrete as Habs.
+    specialize Habs with st n f. apply Habs in Hget.
+    repeat eexists. apply I_Direct_Call. apply Hget. inversion H.
+  - case (run_conditional st c) eqn:Hcond.
+    + apply andb_prop in H. destruct H. destruct (get_bb (abstractify st) l) eqn:Hget1; try inversion H.
+      destruct (get_bb (abstractify st) l0) eqn:Hget2; try inversion H0.
+      pose proof I_Branch_True. specialize H1 with st is c l l0 b b0 addr.
+      repeat eexists. apply H1; auto.
+    + apply andb_prop in H. destruct H. destruct (get_bb (abstractify st) l) eqn:Hget1; try inversion H.
+      destruct (get_bb (abstractify st) l0) eqn:Hget2; try inversion H0.
+      pose proof I_Branch_False. specialize H1 with st is c l l0 b b0 addr.
+      repeat eexists. apply H1; auto.
+  - destruct (get_bb (abstractify st) l) eqn: Hget; try inversion H.
+    pose proof get_bb_abstract_concrete as Habs.
+    specialize Habs with st l b. apply Habs in Hget.
+    repeat eexists. apply I_Jmp. apply Hget.
   - repeat eexists. apply I_Ret. apply EqNat.beq_nat_true in H.
 Admitted.
 
