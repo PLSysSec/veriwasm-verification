@@ -70,6 +70,10 @@ Record abs_state := mk_abs_state {
   abs_program : option program;
   abs_frame_size : nat;
   abs_call_stack : list nat;
+  abs_rsp : nat;
+  abs_stack_base : nat;
+  abs_stack_size : nat;
+  abs_max_stack_size : nat;
 }.
 
 Instance etaAbsState : Settable _ := settable! mk_abs_state
@@ -85,7 +89,11 @@ Instance etaAbsState : Settable _ := settable! mk_abs_state
 
   abs_program;
   abs_frame_size;
-  abs_call_stack
+  abs_call_stack;
+  abs_rsp;
+  abs_stack_base;
+  abs_stack_size;
+  abs_max_stack_size
 >.
 
 Definition abs_state_eq_dec : forall (x y : abs_state), {x=y} + {x<>y}.
@@ -109,7 +117,11 @@ Definition bot_abs_state := {|
 
   abs_program := None;
   abs_frame_size := 0;
-  abs_call_stack := nil
+  abs_call_stack := nil;
+  abs_rsp := 0;
+  abs_stack_base := 0;
+  abs_stack_size := 0;
+  abs_max_stack_size := 0;
 |}.
 
 Definition top_abs_state := {|
@@ -125,6 +137,10 @@ Definition top_abs_state := {|
   abs_program := None;
   abs_frame_size := 0;
   abs_call_stack := nil;
+  abs_rsp := 0;
+  abs_stack_base := 0;
+  abs_stack_size := 0;
+  abs_max_stack_size := 0;
 |}.
 
 Definition init_abs_state heap_base below_stack above_stack above_heap := {|
@@ -141,6 +157,10 @@ Definition init_abs_state heap_base below_stack above_stack above_heap := {|
   abs_program := None;
   abs_frame_size := 0;
   abs_call_stack := nil;
+  abs_rsp := 0;
+  abs_stack_base := 0;
+  abs_stack_size := 0;
+  abs_max_stack_size := 0;
 |}.
 
 Definition expand_abs_stack (s : abs_state) (i : nat) : abs_state :=
@@ -396,6 +416,10 @@ Inductive leq_abs_state : abs_state -> abs_state -> Prop :=
   (abs_program s1) = (abs_program s2) ->
   (abs_frame_size s1) = (abs_frame_size s2) ->
   (abs_call_stack s1) = (abs_call_stack s2) ->
+  (abs_rsp s1) = (abs_rsp s2) ->
+  (abs_stack_base s1) = (abs_stack_base s2) ->
+  (abs_stack_size s1) = (abs_stack_size s2) ->
+  (abs_max_stack_size s1) = (abs_max_stack_size s2) ->
   leq_abs_state s1 s2.
 
 Definition ge_abs_state s1 s2 := leq_abs_state s2 s1.
@@ -506,9 +530,17 @@ match (abs_lifted_state s) with
   | Stack_Contract i =>
     leb i (length s.(abs_stack))
   | Stack_Read _ i =>
-    ltb i ((length s.(abs_stack)) + (abs_below_stack_guard_size s))
+    (andb
+      (andb
+        (ltb i ((length s.(abs_stack)) + (abs_below_stack_guard_size s)))
+        (ltb (s.(abs_stack_base)) ((s.(abs_rsp) - i))))
+      (ltb (s.(abs_rsp) - i) (s.(abs_stack_base) + s.(abs_stack_size))))
   | Stack_Write i _ =>
-    ltb i (length s.(abs_stack))
+    (andb
+      (andb
+        (ltb i (length s.(abs_stack)))
+        (ltb (s.(abs_stack_base)) ((s.(abs_rsp) - i))))
+      (ltb (s.(abs_rsp) - i) (s.(abs_stack_base) + s.(abs_max_stack_size))))
   | Op _ _ _ => true
   | Indirect_Call reg =>
     andb (BinarySet_eqb (get_register_info s reg).(cf_bounded) bottom)

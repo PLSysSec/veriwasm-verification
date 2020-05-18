@@ -49,6 +49,10 @@ Definition abstractify (s : state) : abs_state :=
    abs_program := Some s.(program);
    abs_frame_size := s.(frame_size);
    abs_call_stack := s.(call_stack);
+   abs_rsp := get_register s rsp;
+   abs_stack_base := s.(stack_base);
+   abs_stack_size := s.(stack_size);
+   abs_max_stack_size := s.(max_stack_size);
 |}.
 
 Lemma BinarySet_eqb_eq: forall a b,
@@ -65,8 +69,8 @@ Lemma leq_abs_state_is_heap_base: forall abs_st abs_st' r,
   is_heap_base (get_register_info abs_st' r) = bottom.
 Proof.
   intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
-  specialize H6 with r. inversion H6. rewrite H14. auto.
-  subst. inversion H12. auto. rewrite H in H12. inversion H12. auto.
+  specialize H6 with r. inversion H6. rewrite H18. auto.
+  subst. inversion H16. auto. rewrite H in H16. inversion H16. auto.
 Qed.
 
 Lemma leq_abs_state_heap_bounded: forall abs_st abs_st' r,
@@ -75,8 +79,8 @@ Lemma leq_abs_state_heap_bounded: forall abs_st abs_st' r,
   heap_bounded (get_register_info abs_st' r) = bottom.
 Proof.
   intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
-  specialize H6 with r. inversion H6. rewrite H14. auto.
-  subst. inversion H13. auto. rewrite H in H13. inversion H13. auto.
+  specialize H6 with r. inversion H6. rewrite H18. auto.
+  subst. inversion H17. auto. rewrite H in H17. inversion H17. auto.
 Qed.
 
 Lemma leq_abs_state_cf_bounded: forall abs_st abs_st' r,
@@ -85,8 +89,8 @@ Lemma leq_abs_state_cf_bounded: forall abs_st abs_st' r,
   cf_bounded (get_register_info abs_st' r) = bottom.
 Proof.
   intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
-  specialize H6 with r. inversion H6. rewrite H14. auto.
-  subst. inversion H14. auto. rewrite H in H14. inversion H14. auto.
+  specialize H6 with r. inversion H6. rewrite H18. auto.
+  subst. inversion H18. auto. rewrite H in H18. inversion H18. auto.
 Qed.
 
 (*
@@ -134,14 +138,49 @@ Proof.
     + eapply leq_abs_state_is_heap_base. apply Hleq. auto.
     + eapply leq_abs_state_heap_bounded. apply Hleq. auto.
     + eapply leq_abs_state_heap_bounded. apply Hleq. auto.
-  - apply andb_prop in Hv as [Hr Hrdi]. apply BinarySet_eqb_eq in Hr. apply BinarySet_eqb_eq in Hrdi.
-    apply andb_true_intro; split; apply BinarySet_eqb_eq.
-    * eapply leq_abs_state_cf_bounded. apply Hleq. apply Hr.
-    * eapply leq_abs_state_is_heap_base. apply Hleq. apply Hrdi.
-  - admit.
-  - admit.
-  - admit.
-Admitted.
+  - apply andb_prop in Hv. destruct Hv as [Hv1 Hv3]. apply PeanoNat.Nat.ltb_lt in Hv3.
+    apply andb_prop in Hv1. destruct Hv1 as [Hv1 Hv2].
+    apply PeanoNat.Nat.ltb_lt in Hv1. apply PeanoNat.Nat.ltb_lt in Hv2.
+    repeat (apply andb_true_intro; split; try (apply BinarySet_eqb_eq)); apply PeanoNat.Nat.ltb_lt.
+    + rewrite H2. rewrite H7. assumption.
+    + rewrite H12. rewrite H11. assumption.
+    + rewrite H11. rewrite H12. rewrite H13. assumption.
+  - apply andb_prop in Hv. destruct Hv as [Hv1 Hv3]. apply PeanoNat.Nat.ltb_lt in Hv3.
+    apply andb_prop in Hv1. destruct Hv1 as [Hv1 Hv2].
+    apply PeanoNat.Nat.ltb_lt in Hv1. apply PeanoNat.Nat.ltb_lt in Hv2.
+    repeat (apply andb_true_intro; split; try (apply BinarySet_eqb_eq)); apply PeanoNat.Nat.ltb_lt.
+    + rewrite H7. assumption.
+    + rewrite H12. rewrite H11. assumption.
+    + rewrite H11. rewrite H12. rewrite H14. assumption.
+  - apply andb_prop in Hv. destruct Hv as [Hv1 Hv2].
+    apply BinarySet_eqb_eq in Hv1. apply BinarySet_eqb_eq in Hv2.
+    repeat (apply andb_true_intro; split; try (apply BinarySet_eqb_eq)).
+    + specialize H5 with r. inversion H5.
+      * rewrite H19. assumption.
+      * inversion H19; auto.
+        rewrite Hv1 in H24. discriminate.
+    + specialize H5 with rdi. inversion H5.
+      * rewrite H19. assumption.
+      * inversion H17; auto.
+        rewrite Hv2 in H24. discriminate.
+  - apply andb_prop in Hv. destruct Hv as [Hv1 Hv2]. apply BinarySet_eqb_eq in Hv2.
+    repeat (apply andb_true_intro; split; try (apply BinarySet_eqb_eq)).
+    + unfold AbstractAnalysis.get_function in *. rewrite H8. assumption.
+    + specialize H5 with rdi. inversion H5.
+      * rewrite H19. assumption.
+      * inversion H17; auto.
+        rewrite Hv2 in H24. discriminate.
+  - apply andb_prop in Hv. destruct Hv as [Hv1 Hv2].
+    repeat (apply andb_true_intro; split).
+    + unfold get_bb. unfold AbstractAnalysis.get_function.
+      unfold get_bb in Hv1. unfold AbstractAnalysis.get_function in Hv1.
+      rewrite H8. rewrite H10. assumption.
+    + unfold get_bb. unfold AbstractAnalysis.get_function.
+      unfold get_bb in Hv2. unfold AbstractAnalysis.get_function in Hv2.
+      rewrite H8. rewrite H10. assumption.
+  - unfold get_bb in *. unfold AbstractAnalysis.get_function in *.
+    rewrite H8. rewrite H10. assumption.
+Qed.
 
 Lemma unfold_binaryset_eqb: forall b1 b2 b3 b4,
   (BinarySet_eqb b1 b2 && BinarySet_eqb b3 b4)%bool = true ->
@@ -195,6 +234,16 @@ Proof.
   unfold abs_program in H. unfold get_function. apply H.
 Qed.
 
+(* NOTE: This theorem assumes that rsp was checked to be written
+   to by an instruction in a previous pass; it is excluded from the verifier *)
+(* TODO: This Lemma should have more preconditions (e.g. the interpreter
+   runs up to st and the program passes the verifier). None of these should
+   significantly change how the proof is used. *)
+Theorem verified_program_rsp :
+  forall st,
+    get_register st rsp = (stack_base st) + (length st.(stack)).
+Admitted.
+
 Lemma verified_impl_istep : forall i is st,
   instr_class_verifier i.(instr) (abstractify st) = true ->
   exists is' st', (i :: is) / st i--> is' / st'.
@@ -247,12 +296,12 @@ Proof.
     + repeat eexists. eapply I_Stack_Expand_Dynamic. Search (_ <=? _). apply Compare_dec.leb_complete. auto.
     + repeat eexists. eapply I_Stack_Expand_Dynamic_Guard. apply Compare_dec.leb_complete_conv. auto.
   - repeat eexists. apply I_Stack_Contract.
-  - repeat eexists. apply I_Stack_Read.
-    + apply PeanoNat.Nat.ltb_lt in H.
-    + admit.
-  - repeat eexists. apply I_Stack_Write.
-    + admit.
-    + admit.
+  - repeat eexists. apply andb_prop in H. destruct H. apply andb_prop in H. destruct H.
+    apply PeanoNat.Nat.ltb_lt in H. apply PeanoNat.Nat.ltb_lt in H1. apply PeanoNat.Nat.ltb_lt in H0.
+    apply I_Stack_Read; auto.
+  - repeat eexists. apply andb_prop in H. destruct H. apply andb_prop in H. destruct H.
+    apply PeanoNat.Nat.ltb_lt in H. apply PeanoNat.Nat.ltb_lt in H1. apply PeanoNat.Nat.ltb_lt in H0.
+    apply I_Stack_Write; auto.
   - repeat eexists. apply I_Op.
   - apply andb_prop in H as [Hcf Hheap]. apply BinarySet_eqb_eq in Hcf. apply BinarySet_eqb_eq in Hheap.
     unfold is_cf_bounded_data in Hcf. unfold is_heap_base_data in Hheap.
@@ -279,8 +328,8 @@ Proof.
     pose proof get_bb_abstract_concrete as Habs.
     specialize Habs with st l b. apply Habs in Hget.
     repeat eexists. apply I_Jmp. apply Hget.
-  - repeat eexists. apply I_Ret. apply EqNat.beq_nat_true in H.
-Admitted.
+  - repeat eexists. apply I_Ret. apply EqNat.beq_nat_true in H. assumption.
+Qed.
 
 Lemma verified_program_impl_verified_instr_class: forall p f bb i is st,
   program_verifier p (abstractify (start_state p)) = true ->
