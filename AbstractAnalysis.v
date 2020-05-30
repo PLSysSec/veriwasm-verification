@@ -501,7 +501,7 @@ match (abs_lifted_state s) with
   | Branch _ _ t_label f_label => ltb t_label (length (V (abs_func s))) && ltb f_label (length (V (abs_func s)))
   | Jmp _ j_label => ltb j_label (length (V (abs_func s)))
   | Ret _ =>
-    eqb (length s.(abs_stack)) 0
+    (length s.(abs_stack)) =? 0
 end
 end.
 

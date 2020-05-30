@@ -301,6 +301,22 @@ end.
 Definition get_basic_block st label : option basic_block := 
 nth_error (V (func st)) label.
 
+(*
+Search (register -> register -> bool).
+Definition istep (is_st : list instr_class * state) : (list instr_class * state) :=
+match is_st with
+| (nil, _) => is_st
+| (i :: is, st) =>
+  match i with
+  | Heap_Read pp r_dst r_offset r_index r_base =>
+    let index := (get_register st r_base) + (get_register st r_index) + (get_register st r_offset) in
+    if negb (register_eqb r_dst rsp) then (is, set_register st r_dst (read_heap st index))
+    else (nil, set_error_state st)
+  | _ => is_st
+  end
+end.
+*)
+
 Reserved Notation " i '/' st 'i-->' i' '/' st' "
                   (at level 39, st at level 38, i' at level 38).
 Inductive istep : (list instr_class * state) -> (list instr_class * state) -> Prop :=
@@ -368,7 +384,7 @@ Inductive istep : (list instr_class * state) -> (list instr_class * state) -> Pr
   ((Stack_Read pp r_dst i) :: is) / st i--> is / set_error_state st
 | I_Stack_Write: forall st is pp i r_src,
   (stack_base st) < (get_register st rsp) - i ->
-  (get_register st rsp) - i < (stack_base st) + (max_stack_size st) ->
+  (get_register st rsp) - i < (stack_base st) + (stack_size st) ->
   ((Stack_Write pp i r_src) :: is) / st i--> is / write_stack st i (get_register st r_src)
 | I_Stack_Write_Below_Guard: forall st is pp i r_src,
   (stack_base st) - (below_stack_guard_size st) < (get_register st rsp) - i ->
@@ -396,75 +412,13 @@ Inductive istep : (list instr_class * state) -> (list instr_class * state) -> Pr
   ((Jmp pp j_label) :: is) / st i--> (j_bb ++ is) / st
 | I_Indirect_Call: forall st is pp reg f,
   get_function st (get_register st reg) = Some f ->
-  ((Indirect_Call pp reg) :: is) / st i--> ((get_first_block f) ++ is) / push_frame (cons_stack st 1) f
+  ((Indirect_Call pp reg) :: is) / st i--> ((get_first_block f) ++ is) / push_frame st f
 | I_Direct_Call: forall st is pp fname f,
   get_function st fname = Some f ->
-  ((Direct_Call pp fname) :: is) / st i--> ((get_first_block f) ++ is) / push_frame (cons_stack st 1) f
+  ((Direct_Call pp fname) :: is) / st i--> ((get_first_block f) ++ is) / push_frame st f
 | I_Ret: forall st is pp,
-  (read_stack st 0) = 1 ->
+  (frame_size st) = 0 ->
   ((Ret pp) :: is) / st i--> is / pop_frame st
-
-(*| I_Indirect_Call_Good: forall st is reg fname f,
-    (get_register st reg) = fname ->
-    get_function st fname = Some f ->
-    ((Indirect_Call reg) :: is) / st i--> ((get_first_block f) ++ is) / st'
-| I_Indirect_Call_Bad: forall st st' reg fname i,
-    (get_register st reg) = fname ->
-    get_function st fname = None ->
-    i / st i--> st' ->
-    Indirect_Call reg / st i-->  st'
-| I_Direct_Call_Good: forall st st' fname f,
-    get_function st fname = Some f ->
-    function_istep f (cons_stack st fname) st' ->
-    Direct_Call fname / st i-->  st'
-| I_Direct_Call_Bad : forall st st' fname i,
-    get_function st fname = None ->
-    i / st i--> st' ->
-    Direct_Call fname / st i-->  st'
-| I_Branch_True_Good: forall st t_st f_st c t_label f_label t_bb f_bb,
-    get_basic_block st t_label = Some t_bb ->
-    get_basic_block st f_label = Some f_bb ->
-    basic_block_istep t_bb st t_st ->
-    basic_block_istep f_bb st f_st ->
-    run_conditional st c = true ->
-    (Branch c t_label f_label) / st i--> t_st
-| I_Branch_False_Good: forall st t_st f_st c t_label f_label t_bb f_bb,
-    get_basic_block st t_label = Some t_bb ->
-    get_basic_block st f_label = Some f_bb ->
-    basic_block_istep t_bb st t_st ->
-    basic_block_istep f_bb st f_st ->
-    run_conditional st c = false ->
-    (Branch c t_label f_label) / st i--> f_st
-| I_Branch_True_Bad: forall st st' c t_label f_label i,
-    get_basic_block st t_label = None ->
-    i / st i--> st' ->
-    (Branch c t_label f_label) / st i--> st'
-| I_Branch_False_Bad: forall st st' c t_label f_label i,
-    get_basic_block st f_label = None ->
-    i / st i--> st' ->
-    (Branch c t_label f_label) / st i--> st'
-| I_Jmp_Good: forall st st' j_label bb,
-    get_basic_block st j_label = Some bb ->
-    basic_block_istep bb st st' ->
-    (Jmp j_label) / st i--> st'
-| I_Jmp_Bad: forall st st' j_label,
-    get_basic_block st j_label = None ->
-    (Jmp j_label) / st i--> st'
-| I_Ret_Good: forall st st' fname stack',
-    st' = st <| stack := stack' |> ->
-    (stack st) = fname :: stack' ->
-    fname < List.length (stack st) ->
-    Ret / st i--> st'
-| I_Ret_Bad_Function: forall st st' fname stack' i,
-    (stack st) = fname :: stack' ->
-    fname >= List.length (stack st) ->
-    i / st i--> st' ->
-    Ret / st i--> st'
-| I_Ret_Bad_Stack: forall st st' i,
-    (stack st) = nil ->
-    i / st i--> st' ->
-    Ret / st i--> st'
-*)
   where " i '/' st 'i-->' i' '/' st' " := (istep (i,st) (i',st')).
 
 Lemma get_set_reg : forall st r1 r2 v,
