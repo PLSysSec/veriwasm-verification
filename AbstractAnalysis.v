@@ -1,5 +1,4 @@
 Require Import VerifiedVerifier.Machine.
-Require Import VerifiedVerifier.BoundedLattice.
 Require Import VerifiedVerifier.BinaryLattice.
 Require Import VerifiedVerifier.Maps.
 Require Import VerifiedVerifier.RecordUpdate.
