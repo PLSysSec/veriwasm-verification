@@ -9,7 +9,6 @@ Require Import VerifiedVerifier.Bits.
 Require Import VerifiedVerifier.Maps.
 Require Import VerifiedVerifier.RecordUpdate.
 
-(*TODO: figure out if we need uints vs ints*)
 Definition address_ty := nat.
 Definition data_ty := nat.
 
@@ -19,13 +18,8 @@ Definition stack_ty := list data_ty.
 
 Definition heap_ty := total_map address_ty data_ty.
 
-(*Definition flags_ty := total_map flag int1.*)
-
-(*Definition function_table_ty := partial_map address_ty string.*)
-
 Record state := mkState {
   regs : registers_ty;
-(*  flags : flags_ty; *)
 
   stack : stack_ty;
   below_stack_guard_size : nat;
@@ -41,7 +35,6 @@ Record state := mkState {
   above_heap_guard_size : nat;
   heap_base_gt_guard : heap_base > below_heap_guard_size;
   heap_size_eq_guard : max_heap_size = above_heap_guard_size;
-(*  function_table : function_table_ty; *)
   error : bool;
 
   program : program;
@@ -54,7 +47,6 @@ Record state := mkState {
 Instance etaState : Settable _ := settable! mkState 
 <
   regs;
-(*  flags : flags_ty; *)
 
   stack;
   below_stack_guard_size;
@@ -70,7 +62,6 @@ Instance etaState : Settable _ := settable! mkState
   above_heap_guard_size;
   heap_base_gt_guard;
   heap_size_eq_guard;
-(*  function_table; *)
   error;
 
   program;
@@ -91,7 +82,6 @@ Definition zero : data_ty :=
 Program Definition start_state p : state :=
 {|
   regs := t_empty zero;
-(*  flags : flags_ty; *)
 
   stack := nil;
   below_stack_guard_size := fourGB;
@@ -105,7 +95,6 @@ Program Definition start_state p : state :=
   max_heap_size := fourGB;
   above_heap_guard_size := fourGB;
 
-(*  function_table := empty; *)
   error := false;
 
   program := p;
@@ -126,11 +115,6 @@ Definition get_register (s : state) (r : register) : data_ty :=
 Definition set_register (s : state) (r : register) (v : data_ty) : state :=
 s <| regs := t_update register_eq_dec s.(regs) r v |>.
 
-(*
-Definition set_flags (s : state) (f : flags_ty) : state :=
-s <| flags := f |>.
-*)
-
 Definition expand_stack (s : state) (i : nat) : state :=
   set_register 
 (s <| stack ::= app (repeat 0 i) |> <| frame_size ::= add i |> <| stack_size ::= add i |>)
@@ -147,8 +131,6 @@ set_register
   (s <| stack ::= removelast_n i |> <| frame_size ::= sub i |> <| stack_size ::= sub i |>)
   rsp (get_register s rsp).
 
-(* TODO: we don't actually return 0 for default here, we should
- * signal a trap (and exit?) *)
 (* TODO: Make stack indexing 64-bit *)
 Definition read_stack (s : state) (i : nat) : data_ty :=
 nth_default 0 s.(stack) ((get_register s rsp) - (stack_base s) - (stack_size s) + i).
@@ -211,40 +193,6 @@ end.
 Definition run_op (s : state) (op : opcode) (rs_dst : list register) (rs_src : list register) : state :=
 fold_left (fun s r => set_register s r 0) rs_dst s.
 
-(*
-(* TODO: Implement Op *)
-(* TODO: Can we index the stack from registers (probably), or only constants *)
-Definition run_instr (inst : instr_class) (s : state) : state := 
-  match inst with 
-| Heap_Read r_dst r_src r_base => set_register s r_dst (read_heap s (Word.add (get_register s r_src) (get_register s r_base)))
-| Heap_Write r_dst r_val r_base => write_heap s (Word.add (get_register s r_dst) (get_register s r_base)) (get_register s r_val)
-| Heap_Check r => set_register s r (Word.modu (get_register s r) fourGB)
-| Call_Check r => s (*TODO: Figure out wtf to do.*)
-| Reg_Write r v => set_register s r (value_to_int64 s v)
-| Reg_Move r_dst r_src => set_register s r_dst (get_register s r_src)
-| Stack_Expand i => expand_stack s i
-| Stack_Contract i => contract_stack s i
-| Stack_Read r i => set_register s r (read_stack s i)
-| Stack_Write i r => write_stack s i (get_register s r)
-(*TODO: Make sure calls are right*)
-| Indirect_Call r => s
-| Direct_Call name => s
-| Branch c t_label f_label => s
-| Op op rs_dst rs_src => s
-| Jmp j_label => s
-| Ret => s
-end.
-
-Theorem run_instr_deterministic : forall init_st st st' i, 
-  run_instr i init_st = st ->
-  run_instr i init_st = st' ->
-  st = st'.
-Proof.
-  intros init_st st st' i H1 H2. rewrite <- H1, H2. auto.
-Qed.
-*)
-
-
 Definition run_heap_read st r_dst r_offset r_index r_base : state :=
 let index := (get_register st r_offset) + (get_register st r_index) + (get_register st r_base) in
 let base := heap_base st in
@@ -262,7 +210,6 @@ then set_error_state st
 else write_heap st index (get_register st r_val).
 
 Definition run_call_check st r_src : state :=
-(*match nth_error (program st) (get_register st r_src) with *)
 if ltb (get_register st r_src) (List.length (program st).(Funs))
 then st
 else set_error_state st.
@@ -449,68 +396,6 @@ Inductive istep : (list instr_ty * state) -> (list instr_ty * state) -> Prop :=
   ({| instr := Ret;
      addr := n; |}
     :: is) / st i--> is / pop_frame st
-
-(*| I_Indirect_Call_Good: forall st is reg fname f,
-    (get_register st reg) = fname ->
-    get_function st fname = Some f ->
-    ((Indirect_Call reg) :: is) / st i--> ((get_first_block f) ++ is) / st'
-| I_Indirect_Call_Bad: forall st st' reg fname i,
-    (get_register st reg) = fname ->
-    get_function st fname = None ->
-    i / st i--> st' ->
-    Indirect_Call reg / st i-->  st'
-| I_Direct_Call_Good: forall st st' fname f,
-    get_function st fname = Some f ->
-    function_istep f (cons_stack st fname) st' ->
-    Direct_Call fname / st i-->  st'
-| I_Direct_Call_Bad : forall st st' fname i,
-    get_function st fname = None ->
-    i / st i--> st' ->
-    Direct_Call fname / st i-->  st'
-| I_Branch_True_Good: forall st t_st f_st c t_label f_label t_bb f_bb,
-    get_basic_block st t_label = Some t_bb ->
-    get_basic_block st f_label = Some f_bb ->
-    basic_block_istep t_bb st t_st ->
-    basic_block_istep f_bb st f_st ->
-    run_conditional st c = true ->
-    (Branch c t_label f_label) / st i--> t_st
-| I_Branch_False_Good: forall st t_st f_st c t_label f_label t_bb f_bb,
-    get_basic_block st t_label = Some t_bb ->
-    get_basic_block st f_label = Some f_bb ->
-    basic_block_istep t_bb st t_st ->
-    basic_block_istep f_bb st f_st ->
-    run_conditional st c = false ->
-    (Branch c t_label f_label) / st i--> f_st
-| I_Branch_True_Bad: forall st st' c t_label f_label i,
-    get_basic_block st t_label = None ->
-    i / st i--> st' ->
-    (Branch c t_label f_label) / st i--> st'
-| I_Branch_False_Bad: forall st st' c t_label f_label i,
-    get_basic_block st f_label = None ->
-    i / st i--> st' ->
-    (Branch c t_label f_label) / st i--> st'
-| I_Jmp_Good: forall st st' j_label bb,
-    get_basic_block st j_label = Some bb ->
-    basic_block_istep bb st st' ->
-    (Jmp j_label) / st i--> st'
-| I_Jmp_Bad: forall st st' j_label,
-    get_basic_block st j_label = None ->
-    (Jmp j_label) / st i--> st'
-| I_Ret_Good: forall st st' fname stack',
-    st' = st <| stack := stack' |> ->
-    (stack st) = fname :: stack' ->
-    fname < List.length (stack st) ->
-    Ret / st i--> st'
-| I_Ret_Bad_Function: forall st st' fname stack' i,
-    (stack st) = fname :: stack' ->
-    fname >= List.length (stack st) ->
-    i / st i--> st' ->
-    Ret / st i--> st'
-| I_Ret_Bad_Stack: forall st st' i,
-    (stack st) = nil ->
-    i / st i--> st' ->
-    Ret / st i--> st'
-*)
   where " i '/' st 'i-->' i' '/' st' " := (istep (i,st) (i',st')).
 
 Inductive istep_fuel : ((list instr_ty * state) * nat) -> ((list instr_ty * state) * nat) -> Prop :=
@@ -546,215 +431,3 @@ Inductive imultistep_fuel : ((list instr_ty * state) * nat) -> ((list instr_ty *
     istep_fuel (i1, s1, fuel1) (i2, s2, fuel2) ->
     imultistep_fuel (i2, s2, fuel2) (i3, s3, fuel3) ->
     imultistep_fuel (i1, s1, fuel1) (i3, s3, fuel3).
-
-(*
-Reserved Notation " i '/' st 'i-->' st' "
-                  (at level 40, st' at level 39).
-Inductive instr_class_istep : instr_class -> state -> state -> Prop := 
-| I_Heap_Read: forall st r_base r_index r_offset r_dst,
-    Heap_Read r_dst r_offset r_index r_base / st i--> run_heap_read st r_dst r_offset r_index r_base
-| I_Heap_Write: forall st r_base r_val r_index r_offset,
-    Heap_Write r_offset r_index r_base r_val / st i--> run_heap_write st r_offset r_index r_base r_val
-| I_Heap_Check: forall st r_src,
-    Heap_Check r_src / st i--> set_register st r_src ((get_register st r_src) mod fourGB)
-| I_Call_Check: forall st r_src,
-    Call_Check r_src / st i--> run_call_check st r_src
-| I_Reg_Move: forall st r_src r_dst,
-    Reg_Move r_dst r_src / st i--> set_register st r_dst (get_register st r_src)
-| I_Reg_Write: forall st r_dst val,
-    Reg_Write r_dst val / st i--> set_register st r_dst (value_to_data st val)
-| I_Stack_Expand_Static: forall st i,
-    Stack_Expand_Static i / st i--> expand_stack st i
-| I_Stack_Expand_Dynamic: forall st i,
-    Stack_Expand_Dynamic i / st i--> run_stack_expand_dynamic st i
-
-(* i forgot how this case should be handled *)
-| I_Stack_Contract_Good: forall st i,
-    i <= List.length (stack st) ->
-    Stack_Contract i / st i--> contract_stack st i
-| I_Stack_Contract_Bad: forall st i,
-    i > List.length (stack st) ->
-    Stack_Contract i / st i--> set_error_state st
-
-| I_Stack_Read: forall st i r_dst,
-    Stack_Read r_dst i / st i--> run_stack_read st r_dst i
-| I_Stack_Write: forall st i r_src,
-    Stack_Write i r_src / st i--> run_stack_write st i r_src
-| I_Op: forall st op rs_dst rs_src,
-    (Op op rs_dst rs_src) / st i--> run_op st op rs_dst rs_src
-
-(* those calls might also be wrong *)
-| I_Indirect_Call_Good: forall st st' reg fname f,
-    (get_register st reg) = fname ->
-    get_function st fname = Some f ->
-    function_istep f (cons_stack st fname) st' ->
-    Indirect_Call reg / st i-->  st'
-| I_Indirect_Call_Bad: forall st st' reg fname i,
-    (get_register st reg) = fname ->
-    get_function st fname = None ->
-    i / st i--> st' ->
-    Indirect_Call reg / st i-->  st'
-| I_Direct_Call_Good: forall st st' fname f,
-    get_function st fname = Some f ->
-    function_istep f (cons_stack st fname) st' ->
-    Direct_Call fname / st i-->  st'
-| I_Direct_Call_Bad : forall st st' fname i,
-    get_function st fname = None ->
-    i / st i--> st' ->
-    Direct_Call fname / st i-->  st'
-| I_Branch_True_Good: forall st t_st f_st c t_label f_label t_bb f_bb,
-    get_basic_block st t_label = Some t_bb ->
-    get_basic_block st f_label = Some f_bb ->
-    basic_block_istep t_bb st t_st ->
-    basic_block_istep f_bb st f_st ->
-    run_conditional st c = true ->
-    (Branch c t_label f_label) / st i--> t_st
-| I_Branch_False_Good: forall st t_st f_st c t_label f_label t_bb f_bb,
-    get_basic_block st t_label = Some t_bb ->
-    get_basic_block st f_label = Some f_bb ->
-    basic_block_istep t_bb st t_st ->
-    basic_block_istep f_bb st f_st ->
-    run_conditional st c = false ->
-    (Branch c t_label f_label) / st i--> f_st
-| I_Branch_True_Bad: forall st st' c t_label f_label i,
-    get_basic_block st t_label = None ->
-    i / st i--> st' ->
-    (Branch c t_label f_label) / st i--> st'
-| I_Branch_False_Bad: forall st st' c t_label f_label i,
-    get_basic_block st f_label = None ->
-    i / st i--> st' ->
-    (Branch c t_label f_label) / st i--> st'
-| I_Jmp_Good: forall st st' j_label bb,
-    get_basic_block st j_label = Some bb ->
-    basic_block_istep bb st st' ->
-    (Jmp j_label) / st i--> st'
-| I_Jmp_Bad: forall st st' j_label,
-    get_basic_block st j_label = None ->
-    (Jmp j_label) / st i--> st'
-| I_Ret_Good: forall st st' fname stack',
-    st' = st <| stack := stack' |> ->
-    (stack st) = fname :: stack' ->
-    fname < List.length (stack st) ->
-    Ret / st i--> st'
-| I_Ret_Bad_Function: forall st st' fname stack' i,
-    (stack st) = fname :: stack' ->
-    fname >= List.length (stack st) ->
-    i / st i--> st' ->
-    Ret / st i--> st'
-| I_Ret_Bad_Stack: forall st st' i,
-    (stack st) = nil ->
-    i / st i--> st' ->
-    Ret / st i--> st'
-  where " i '/' st 'i-->' st'" := (instr_class_istep i st st')
-
-with basic_block_istep : basic_block -> state -> state -> Prop :=
-| I_Basic_Block_Nil: forall st,
-  basic_block_istep nil st st
-| I_Basic_Block_Trap: forall bb st,
-  error st = true ->
-  basic_block_istep bb st st
-| I_Basic_Block_Cons: forall i is st st' st'',
-  i / st i--> st' ->
-  basic_block_istep is st' st'' ->
-  basic_block_istep (i :: is) st st'
-
-with function_istep : function -> state -> state -> Prop :=
-| I_Function_Some: forall f bb st st',
-  head (V f) = Some bb ->
-  basic_block_istep bb st st' ->
-  function_istep f st st'
-| I_Function_None: forall f st,
-  head (V f) = None ->
-  function_istep f st st
-.
-*)
-(*
-Theorem instr_class_istep_deterministic : forall init_st st st' i, 
-  i / init_st i--> st ->
-  i / init_st i--> st' ->
-  st = st'.
-Proof.
-  intros init_st st st' i H1 H2. inversion H1; inversion H2; subst; 
-  try (inversion H8; auto);
-  try (inversion H7; auto);
-  try (inversion H6; auto);
-  try (inversion H5; auto);
-  try (inversion H4; auto).
-Qed.
-
-Theorem instr_class_always_isteps : forall st i,
-  exists st', i / st i--> st'.
-Proof.
-  intros st i. induction i; eexists; auto.
-Qed.
-
-Definition run_basic_block (bb : basic_block) (s : state) : state :=
-  fold_left (fun s i => run_instr i s) bb s.
-
-(* TODO: Not sure why this is necessary, but it won't go through
- * if I try to inline node_ty_eqb_dec *)
-Definition node_ty_eqb (a : node_ty) (b : node_ty) : bool :=
-  if node_ty_eq_dec a b
-  then true
-  else false.
-
-(* TODO: Not sure why this is necessary, but it won't go through
- * if I try to inline edge_class_eqb_dec *)
-Definition edge_class_eqb (a : edge_class) (b : edge_class) : bool :=
-  if edge_class_eq_dec a b
-  then true
-  else false.
-
-Definition find_edge (cfg : cfg_ty) (n : node_ty) (e : edge_class) : option node_ty :=
-  match find (fun x => andb (node_ty_eqb (fst (fst x)) n)
-                            (edge_class_eqb (snd x) e))
-             cfg.(edges) with
-  | Some edge => Some (snd (fst edge))
-  | None => None
-  end.
-
-Definition next_node (cfg : cfg_ty) (s : state) (n : node_ty) : option node_ty :=
-  match last (fst n) Ret with
-  | Branch c => if run_conditional c s
-                then find_edge cfg n True_Branch
-                else find_edge cfg n False_Branch
-  | Ret => None
-  | _ => find_edge cfg n Non_Branch
-  end.
-
-Definition get_function_from_name (p : program_ty) (name : string) : option function_ty :=
-  find (fun x => eqb (snd x) name) p.(funs).
-
-Definition function_lookup (p : program_ty) (s : state) (i : int64) : option function_ty :=
-match (s.(function_table) i) with
-| Some name => get_function_from_name p name
-| None => get_function_from_name p "trap"
-end.
-
-(* TODO: Make sure we are handling errors correctly *)
-(* TODO: Allow read-only access to earlier stack values up to some constant *)
-Fixpoint run_program (p : program_ty) (cfg : cfg_ty) (n : node_ty) (s : state) (fuel : nat) : state :=
-  match fuel with
-  | 0 => set_error_state s
-  | S fuel' =>
-    let bb := fst n in
-    let s' := run_basic_block bb s in
-    let s'' := match last bb Ret with
-               | Direct_Call name =>
-                   match get_function_from_name p name with
-                   | Some f => run_program p (fst f) (fst f).(start_node) s' fuel'
-                   | None => set_error_state s'
-                   end
-               | Indirect_Call r =>
-                   match function_lookup p s' (get_register s r) with
-                   | Some f => run_program p (fst f) (fst f).(start_node) s' fuel'
-                   | None => set_error_state s'
-                   end
-               | _ => s'
-               end in
-    match next_node cfg s n with
-    | Some n' => run_program p cfg n' s'' fuel'
-    | None => s''
-    end
-  end.
-*)
