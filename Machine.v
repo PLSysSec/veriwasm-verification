@@ -73,7 +73,10 @@ Inductive instr_class : Type :=
 | Indirect_Call : register -> instr_class
 | Direct_Call : nat -> instr_class
 | Branch : conditional -> label -> label -> instr_class
-| Jmp: label -> instr_class
+| Jmp : label -> instr_class
+| Get_Globals_Base : register -> register -> instr_class
+| Globals_Read : register -> nat -> register -> instr_class
+| Globals_Write : register -> nat -> register -> instr_class
 | Ret : instr_class.
 
 Definition terminating_instr_class i :=

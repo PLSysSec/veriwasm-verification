@@ -9,6 +9,7 @@ Record info := mk_info {
   is_heap_base : BinarySet;
   heap_bounded : BinarySet;
   cf_bounded : BinarySet;
+  is_globals_base : BinarySet;
   above_stack_bounded: BinarySet;
   below_stack_bounded: BinarySet;
 }.
@@ -18,6 +19,7 @@ Instance etaInfo : Settable _ := settable! mk_info
   is_heap_base;
   heap_bounded;
   cf_bounded;
+  is_globals_base;
   above_stack_bounded;
   below_stack_bounded
 >.
@@ -26,6 +28,7 @@ Definition top_info :=
 {| is_heap_base := top;
    heap_bounded := top;
    cf_bounded := top;
+   is_globals_base := top;
    above_stack_bounded := top;
    below_stack_bounded := top;
 |}.
@@ -34,6 +37,7 @@ Definition bot_info :=
 {| is_heap_base := bottom;
    heap_bounded := bottom;
    cf_bounded := bottom;
+   is_globals_base := bottom;
    above_stack_bounded := bottom;
    below_stack_bounded := bottom;
 |}.
@@ -46,6 +50,9 @@ top_info <| heap_bounded := bottom |>.
 
 Definition abs_cf_bounded_info :=
 top_info <| cf_bounded := bottom |>.
+
+Definition abs_globals_base_info :=
+top_info <| is_globals_base := bottom |>.
 
 Definition abs_registers_ty := total_map register info.
 
@@ -66,6 +73,9 @@ Record abs_state := mk_abs_state {
   abs_above_stack_guard_size : nat;
   abs_above_heap_guard_size : nat;
 
+  abs_globals_size : nat;
+  abs_globals_base : nat;
+
   abs_program : option program;
   abs_frame_size : nat;
   abs_call_stack : list nat;
@@ -85,6 +95,9 @@ Instance etaAbsState : Settable _ := settable! mk_abs_state
   abs_below_stack_guard_size;
   abs_above_stack_guard_size;
   abs_above_heap_guard_size;
+
+  abs_globals_size;
+  abs_globals_base;
 
   abs_program;
   abs_frame_size;
@@ -114,6 +127,9 @@ Definition bot_abs_state := {|
   abs_above_stack_guard_size := 0;
   abs_above_heap_guard_size := 0;
 
+  abs_globals_size := 4096;
+  abs_globals_base := 0;
+
   abs_program := None;
   abs_frame_size := 0;
   abs_call_stack := nil;
@@ -132,6 +148,9 @@ Definition top_abs_state := {|
   abs_below_stack_guard_size := 0;
   abs_above_stack_guard_size := 0;
   abs_above_heap_guard_size := 0;
+
+  abs_globals_size := 4096;
+  abs_globals_base := 0;
 
   abs_program := None;
   abs_frame_size := 0;
@@ -152,6 +171,9 @@ Definition init_abs_state heap_base below_stack above_stack above_heap := {|
   abs_below_stack_guard_size := below_stack;
   abs_above_stack_guard_size := above_stack;
   abs_above_heap_guard_size := above_heap;
+
+  abs_globals_size := 0;
+  abs_globals_base := 0;
 
   abs_program := None;
   abs_frame_size := 0;
@@ -198,6 +220,7 @@ Definition join_info (i1 : info) (i2 : info) : info :=
 {| is_heap_base := join_BinarySet i1.(is_heap_base) i2.(is_heap_base);
    heap_bounded := join_BinarySet i1.(heap_bounded) i2.(heap_bounded);
    cf_bounded := join_BinarySet i1.(cf_bounded) i2.(cf_bounded);
+   is_globals_base := join_BinarySet i1.(is_globals_base) i2.(is_globals_base);
    above_stack_bounded := join_BinarySet i1.(above_stack_bounded) i2.(above_stack_bounded);
    below_stack_bounded := join_BinarySet i1.(below_stack_bounded) i2.(below_stack_bounded);
  |}.
@@ -250,6 +273,9 @@ match (abs_lifted_state s) with
   | Direct_Call fname => clear_registers_info s
   | Branch _ _ _ => s
   | Jmp _ => s
+  | Get_Globals_Base r_base r_dst => set_register_info s r_dst abs_globals_base_info
+  | Globals_Read _ _ r_dst => set_register_info s r_dst top_info
+  | Globals_Write _ _ _ => s
   | Ret => s
   end
 | _ => s
@@ -303,6 +329,7 @@ Inductive leq_info : info -> info -> Prop :=
   BinaryRel (is_heap_base x) (is_heap_base y) ->
   BinaryRel (heap_bounded x) (heap_bounded y) ->
   BinaryRel (cf_bounded x) (cf_bounded y) ->
+  BinaryRel (is_globals_base x) (is_globals_base y) ->
   leq_info x y.
 
 Inductive leq_abs_state : abs_state -> abs_state -> Prop :=
@@ -327,6 +354,8 @@ Inductive leq_abs_state : abs_state -> abs_state -> Prop :=
   (abs_stack_base s1) = (abs_stack_base s2) ->
   (abs_stack_size s1) = (abs_stack_size s2) ->
   (abs_max_stack_size s1) = (abs_max_stack_size s2) ->
+  (abs_globals_size s1) = (abs_globals_size s2) ->
+  (abs_globals_base s1) = (abs_globals_base s2) ->
   leq_abs_state s1 s2.
 
 Definition ge_abs_state s1 s2 := leq_abs_state s2 s1.
@@ -437,6 +466,11 @@ match (abs_lifted_state s) with
     | Some _ => true
     | _ => false
     end
+  | Get_Globals_Base r_base _ => BinarySet_eqb (get_register_info s r_base).(is_heap_base) bottom
+  | Globals_Read r_base i _ => andb (BinarySet_eqb (get_register_info s r_base).(is_globals_base) bottom)
+                                    (ltb i s.(abs_globals_size))
+  | Globals_Write r_base i _ => andb (BinarySet_eqb (get_register_info s r_base).(is_globals_base) bottom)
+                                     (ltb i s.(abs_globals_size))
   | Ret =>
     eqb s.(abs_frame_size) 0
 end

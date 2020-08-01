@@ -18,6 +18,9 @@ if (ltb i (above_heap_guard_size s)) then bottom else top.
 Definition is_cf_bounded_data (s : state) (i : data_ty) : BinarySet :=
 if (ltb i (List.length (program s).(Funs))) then bottom else top.
 
+Definition is_globals_base_data (s : state) (i : data_ty) : BinarySet :=
+if (eqb i s.(globals_base)) then bottom else top.
+
 Definition is_above_stack_bounded_data (s : state) (i : data_ty) : BinarySet :=
 if (eqb i (above_stack_guard_size s)) then bottom else top.
 
@@ -28,6 +31,7 @@ Definition abstractify_data (s : state) (i : data_ty) : info :=
 {| is_heap_base := is_heap_base_data s i;
    heap_bounded := is_heap_bounded_data s i;
    cf_bounded := is_cf_bounded_data s i;
+   is_globals_base := is_globals_base_data s i;
    above_stack_bounded := is_above_stack_bounded_data s i;
    below_stack_bounded := is_below_stack_bounded_data s i;
 |}.
@@ -46,6 +50,8 @@ Definition abstractify (s : state) : abs_state :=
    abs_below_stack_guard_size := (below_stack_guard_size s);
    abs_above_stack_guard_size := (above_stack_guard_size s);
    abs_above_heap_guard_size := (above_heap_guard_size s);
+   abs_globals_size := (globals_size s);
+   abs_globals_base := (globals_base s);
    abs_program := Some s.(program);
    abs_frame_size := s.(frame_size);
    abs_call_stack := s.(call_stack);
@@ -69,8 +75,18 @@ Lemma leq_abs_state_is_heap_base: forall abs_st abs_st' r,
   is_heap_base (get_register_info abs_st' r) = bottom.
 Proof.
   intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
-  specialize H6 with r. inversion H6. rewrite H18. auto.
-  subst. inversion H16. auto. rewrite H in H16. inversion H16. auto.
+  specialize H6 with r. inversion H6. rewrite H20. auto.
+  subst. inversion H18. auto. rewrite H in H18. inversion H18. auto.
+Qed.
+
+Lemma leq_abs_state_is_globals_base: forall abs_st abs_st' r,
+  leq_abs_state abs_st' abs_st ->
+  is_globals_base (get_register_info abs_st r) = bottom ->
+  is_globals_base (get_register_info abs_st' r) = bottom.
+Proof.
+  intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
+  specialize H6 with r. inversion H6. rewrite H20. auto.
+  subst. inversion H21. auto. rewrite H in H21. inversion H21. auto.
 Qed.
 
 Lemma leq_abs_state_heap_bounded: forall abs_st abs_st' r,
@@ -79,8 +95,8 @@ Lemma leq_abs_state_heap_bounded: forall abs_st abs_st' r,
   heap_bounded (get_register_info abs_st' r) = bottom.
 Proof.
   intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
-  specialize H6 with r. inversion H6. rewrite H18. auto.
-  subst. inversion H17. auto. rewrite H in H17. inversion H17. auto.
+  specialize H6 with r. inversion H6. rewrite H20. auto.
+  subst. inversion H19. auto. rewrite H in H19. inversion H19. auto.
 Qed.
 
 Lemma leq_abs_state_cf_bounded: forall abs_st abs_st' r,
@@ -89,8 +105,8 @@ Lemma leq_abs_state_cf_bounded: forall abs_st abs_st' r,
   cf_bounded (get_register_info abs_st' r) = bottom.
 Proof.
   intros abs_st abs_st' r Hleq H. inversion Hleq. auto. subst. inversion H. subst.
-  specialize H6 with r. inversion H6. rewrite H18. auto.
-  subst. inversion H18. auto. rewrite H in H18. inversion H18. auto.
+  specialize H6 with r. inversion H6. rewrite H20. auto.
+  subst. inversion H20. auto. rewrite H in H20. inversion H20. auto.
 Qed.
 
 Lemma if_thn_true: forall (cond : bool),
@@ -146,20 +162,20 @@ Proof.
     apply BinarySet_eqb_eq in Hv1. apply BinarySet_eqb_eq in Hv2.
     repeat (apply andb_true_intro; split; try (apply BinarySet_eqb_eq)).
     + specialize H5 with r. inversion H5.
-      * rewrite H19. assumption.
-      * inversion H19; auto.
-        rewrite Hv1 in H24. discriminate.
+      * rewrite H21. assumption.
+      * inversion H21; auto.
+        rewrite Hv1 in H27. discriminate.
     + specialize H5 with rdi. inversion H5.
-      * rewrite H19. assumption.
-      * inversion H17; auto.
-        rewrite Hv2 in H24. discriminate.
+      * rewrite H21. assumption.
+      * inversion H19; auto.
+        rewrite Hv2 in H27. discriminate.
   - apply andb_prop in Hv. destruct Hv as [Hv1 Hv2]. apply BinarySet_eqb_eq in Hv2.
     repeat (apply andb_true_intro; split; try (apply BinarySet_eqb_eq)).
     + unfold AbstractAnalysis.get_function in *. rewrite H8. assumption.
     + specialize H5 with rdi. inversion H5.
-      * rewrite H19. assumption.
-      * inversion H17; auto.
-        rewrite Hv2 in H24. discriminate.
+      * rewrite H21. assumption.
+      * inversion H19; auto.
+        rewrite Hv2 in H27. discriminate.
   - apply andb_prop in Hv. destruct Hv as [Hv1 Hv2].
     repeat (apply andb_true_intro; split).
     + unfold get_bb. unfold AbstractAnalysis.get_function.
@@ -170,6 +186,20 @@ Proof.
       rewrite H8. rewrite H10. assumption.
   - unfold get_bb in *. unfold AbstractAnalysis.get_function in *.
     rewrite H8. rewrite H10. assumption.
+  - apply BinarySet_eqb_eq. apply BinarySet_eqb_eq in Hv.
+    eapply leq_abs_state_is_heap_base. eapply Hleq. auto.
+  - apply andb_prop in Hv. destruct Hv as [Hv1 Hv2]. apply BinarySet_eqb_eq in Hv1.
+    apply PeanoNat.Nat.ltb_lt in Hv2. apply andb_true_intro; split.
+    + apply BinarySet_eqb_eq. pose proof leq_abs_state_is_globals_base as Hglobal.
+      specialize Hglobal with abs_st abs_st' r.
+      apply Hglobal; auto.
+    + apply PeanoNat.Nat.ltb_lt. rewrite H15. auto.
+  - apply andb_prop in Hv. destruct Hv as [Hv1 Hv2]. apply BinarySet_eqb_eq in Hv1.
+    apply PeanoNat.Nat.ltb_lt in Hv2. apply andb_true_intro; split.
+    + apply BinarySet_eqb_eq. pose proof leq_abs_state_is_globals_base as Hglobal.
+      specialize Hglobal with abs_st abs_st' r.
+      apply Hglobal; auto.
+    + apply PeanoNat.Nat.ltb_lt. rewrite H15. auto.
 Qed.
 
 Lemma unfold_binaryset_eqb: forall b1 b2 b3 b4,
@@ -318,6 +348,22 @@ Proof.
     pose proof get_bb_abstract_concrete as Habs.
     specialize Habs with st l b. apply Habs in Hget.
     repeat eexists. apply I_Jmp. apply Hget.
+  - apply BinarySet_eqb_eq in H. repeat eexists. eapply I_Get_Globals_Base.
+    unfold is_heap_base_data in H. destruct (regs st r =? heap_base st) eqn:Hbase.
+    + apply EqNat.beq_nat_true in Hbase. auto.
+    + discriminate.
+  - apply andb_prop in H as [Hbase Hindex]. apply BinarySet_eqb_eq in Hbase.
+    apply PeanoNat.Nat.ltb_lt in Hindex. repeat eexists. eapply I_Globals_Read.
+    unfold is_globals_base_data in Hbase. destruct (regs st r =? globals_base st) eqn:Hglobal.
+    + apply EqNat.beq_nat_true in Hglobal. auto.
+    + discriminate.
+    + auto.
+  - apply andb_prop in H as [Hbase Hindex]. apply BinarySet_eqb_eq in Hbase.
+    apply PeanoNat.Nat.ltb_lt in Hindex. repeat eexists. eapply I_Globals_Write.
+    unfold is_globals_base_data in Hbase. destruct (regs st r =? globals_base st) eqn:Hglobal.
+    + apply EqNat.beq_nat_true in Hglobal. auto.
+    + discriminate.
+    + auto.
   - repeat eexists. apply I_Ret. apply EqNat.beq_nat_true in H. assumption.
 Qed.
 

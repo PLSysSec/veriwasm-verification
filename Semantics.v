@@ -18,6 +18,8 @@ Definition stack_ty := list data_ty.
 
 Definition heap_ty := total_map address_ty data_ty.
 
+Definition globals_ty := list data_ty.
+
 Record state := mkState {
   regs : registers_ty;
 
@@ -36,6 +38,10 @@ Record state := mkState {
   heap_base_gt_guard : heap_base > below_heap_guard_size;
   heap_size_eq_guard : max_heap_size = above_heap_guard_size;
   error : bool;
+
+  globals : globals_ty;
+  globals_size : nat;
+  globals_base : address_ty;
 
   program : program;
   call_stack : list nat;
@@ -64,6 +70,10 @@ Instance etaState : Settable _ := settable! mkState
   heap_size_eq_guard;
   error;
 
+  globals;
+  globals_size;
+  globals_base;
+
   program;
   call_stack;
   stack_size;
@@ -75,6 +85,9 @@ Eval compute in (Z.to_nat (-1%Z)).
 
 Definition fourGB : address_ty :=
 pow 2 32.
+
+Definition fourKB : address_ty :=
+pow 2 12.
 
 Definition zero : data_ty :=
 0.
@@ -96,6 +109,10 @@ Program Definition start_state p : state :=
   above_heap_guard_size := fourGB;
 
   error := false;
+
+  globals := seq 0 4096;
+  globals_size := fourKB;
+  globals_base := zero;
 
   program := p;
   call_stack := nil;
@@ -147,8 +164,8 @@ Lemma cons_stack_correct : forall s val,
 Proof.
   intros. simpl. pose proof stack_base_gt_guard. specialize H0 with s. destruct (stack_base s).
   - inversion H0.
-  - rewrite <- plus_n_O. rewrite H. Search (S _ + _). rewrite Nat.add_succ_comm. Search (_ + _ - _).
-    rewrite Minus.minus_plus. Search (_ - _). rewrite Nat.sub_diag. reflexivity.
+  - rewrite <- plus_n_O. rewrite H. rewrite Nat.add_succ_comm.
+    rewrite Minus.minus_plus. rewrite Nat.sub_diag. reflexivity.
 Qed.
 
 Definition push_call st fname : state :=
@@ -172,9 +189,13 @@ s <| heap := t_update Nat.eq_dec s.(heap) i v |>.
 Definition set_error_state (s : state) : state :=
 s <| error := true |>.
 
-(*Definition fourGB : int64 := (Word.shl (Word.repr 2) (Word.repr 32)). *)
+Definition read_globals (s : state) (i : nat) : data_ty :=
+  nth_default 0 s.(globals) i.
 
-(*TODO: This doesn't handle signed/unsigned conversions correctly*)
+Definition write_globals (s : state) (i : nat) (val : data_ty) : state :=
+  s <| globals := Machine.update s.(globals) i val |>.
+
+(*NOTE: This doesn't handle signed/unsigned conversions correctly*)
 Definition run_conditional (s : state) (c : conditional) : bool :=
   match c with
 | Not_Equal r1 r2 => negb (eqb (get_register s r1) (get_register s r2))
@@ -233,6 +254,18 @@ if orb (andb (leb (base + (max_stack_size st)) i) (ltb i (base + (max_stack_size
 then set_error_state st
 else write_stack st i (get_register st r_src).
 
+Definition run_globals_read st r_dst i : state :=
+  let max_size := globals_size st in
+  if leb max_size i
+  then set_error_state st
+  else set_register st r_dst (read_globals st i).
+
+Definition run_globals_write st i r_src : state :=
+  let max_size := globals_size st in
+  if leb max_size i
+  then set_error_state st
+  else write_globals st i (get_register st r_src).
+
 Definition get_function st fname : option function :=
 nth_error (program st).(Funs) fname.
 
@@ -242,10 +275,10 @@ match (V f) with
 | h :: t => h
 end.
 
-Definition get_basic_block st label : option basic_block := 
+Definition get_basic_block st label : option basic_block :=
 match (call_stack st) with
 | nil => None
-| fname :: _ => 
+| fname :: _ =>
   match (get_function st fname) with
   | None => None
   | Some f => nth_error (V f) label
@@ -358,6 +391,23 @@ Inductive istep : (list instr_ty * state) -> (list instr_ty * state) -> Prop :=
   ({| instr := (Stack_Write i r_dst);
       addr := n |}
      :: is) / st i--> is / set_error_state st
+| I_Get_Globals_Base: forall st is r_base r_dst n,
+    get_register st r_base = heap_base st ->
+    ({| instr := (Get_Globals_Base r_base r_dst);
+        addr :=  n |}
+       :: is) / st i--> is / set_register st r_dst (globals_base st)
+| I_Globals_Read: forall st is i n r_base r_dst,
+    get_register st r_base = globals_base st ->
+    i < globals_size st ->
+    ({| instr := (Globals_Read r_base i r_dst);
+        addr :=  n |}
+      :: is) / st i--> is / set_register st r_dst (read_globals st i)
+| I_Globals_Write: forall st is i n r_base r_src,
+    get_register st r_base = globals_base st ->
+    i < globals_size st ->
+    ({| instr := (Globals_Write r_base i r_src);
+        addr :=  n |}
+      :: is) / st i--> is / write_globals st i (get_register st r_src)
 | I_Op: forall st is op rs_dst rs_src n,
     ({| instr := (Op op rs_dst rs_src);
         addr := n |}
