@@ -218,14 +218,6 @@ Proof.
   apply BinarySet_eqb_eq in H2. auto.
 Qed.
 
-Lemma rsp_stack_size :
-  forall p f is st fuel,
-    program_verifier p (abstractify (start_state p)) = true ->
-    In f p.(Funs) ->
-    imultistep_fuel ((run_function p f), fuel) (is, st, 0) ->
-    (st.(regs)) rsp = st.(stack_base) + (length st.(stack)).
-Admitted.
-
 Theorem get_function_concrete_abstract :
   forall s n f,
     Semantics.get_function s n = Some f ->
@@ -253,16 +245,6 @@ Proof.
   unfold abs_call_stack in H. unfold AbstractAnalysis.get_function in H.
   unfold abs_program in H. unfold get_function. apply H.
 Qed.
-
-(* NOTE: This theorem assumes that rsp was checked to be written
-   to by an instruction in a previous pass; it is excluded from the verifier *)
-(* TODO: This Lemma should have more preconditions (e.g. the interpreter
-   runs up to st and the program passes the verifier). None of these should
-   significantly change how the proof is used. *)
-Theorem verified_program_rsp :
-  forall st,
-    get_register st rsp = (stack_base st) + (length st.(stack)).
-Admitted.
 
 Lemma verified_impl_istep : forall i is st,
   instr_class_verifier i.(instr) (abstractify st) = true ->
@@ -367,41 +349,6 @@ Proof.
   - repeat eexists. apply I_Ret. apply EqNat.beq_nat_true in H. assumption.
 Qed.
 
-Lemma verified_program_impl_verified_instr_class: forall p f bb i is st,
-  program_verifier p (abstractify (start_state p)) = true ->
-  In f p.(Funs) ->
-  In bb (V f) ->
-  In i bb ->
-  (exists fixpoint,
-    instr_class_verifier i.(instr) fixpoint = true /\
-      (imultistep (run_function p f) ((i :: is), st) ->
-        leq_abs_state (abstractify st) fixpoint)).
-Admitted.
-
-Lemma verified_program_only_steps_to_verified_instr: forall p f i is st,
-  program_verifier p (abstractify (start_state p)) = true ->
-  In f p.(Funs) ->
-  imultistep (run_function p f) ((i :: is), st) ->
-  instr_class_verifier i.(instr) (abstractify st) = true.
-Proof.
-  intros.
-Admitted.
-
-Theorem verified_fixpoint_impl_istep_final: forall p f i is st,
-  exists fixpoint,
-  instr_class_verifier i.(instr) fixpoint = true ->
-  imultistep (run_function p f) ((i :: is), st) ->
-  exists st', (i :: is) / st i--> is / st'.
-Proof.
-  intros.
-assert (
-  exists fixpoint,
-  (imultistep (run_function p f) ((i :: is), st) ->
-  leq_abs_state (abstractify st) fixpoint)) as abstract_analysis_sound. { admit. }
-  destruct abstract_analysis_sound as [fixpoint abstract_analysis_sound].
-eexists. intros.
-Admitted.
-
 Lemma verified_program_impl_verified_function : forall p f,
   program_verifier p (abstractify (start_state p)) = true ->
   In f p.(Funs) ->
@@ -411,27 +358,6 @@ Proof.
   specialize H with f. apply H. apply H0.
 Qed.
 
-Theorem multistep_fuel_associativity :
-  forall l st fuel l' st' fuel',
-    imultistep_fuel (l, st, S fuel) (l', st', fuel') ->
-    exists l1 st1,
-      (imultistep_fuel (l, st, 1) (l1, st1, 0) /\
-       imultistep_fuel (l1, st1, fuel) (l', st', fuel')).
-Admitted.
-
-Lemma istep_fuel_independence :
-  forall fuel fuel' l l' st st' fuel1 fuel1',
-    istep_fuel (l, st, fuel) (l', st', fuel1) ->
-    istep_fuel (l, st, fuel') (l', st', fuel1').
-Admitted.
-
-Lemma imultistep_finish :
-  forall fuel is st is1 st1 is' st',
-    imultistep_fuel (is, st, S fuel) (is', st', 0) ->
-    imultistep_fuel (is, st, fuel) (is1, st1, 0) ->
-    imultistep_fuel (is1, st1, 1) (is', st', 0).
-Admitted.
-
 Lemma imultistep_finish' :
   forall fuel is st is1 st1 is' st',
     imultistep_fuel (is, st, fuel) (is1, st1, 0) ->
@@ -439,11 +365,10 @@ Lemma imultistep_finish' :
     imultistep_fuel (is, st, S fuel) (is', st', 0).
 Admitted.
 
-(* NOTE: This is, in general, a true statement about abstract analyses. It is admitted here
-   because we assume the abstract analysis is correct and instead focus on proving facts about
-   whether or not we have enough information to guarantee sfi properties. *)
-(* NOTE: This isn't technically precise enough because the statement holds not for an
-   arbitrary fixpoint, but for the fixpoint produced by the verifier at that instruction. *)
+(* NOTE: This is, in general, a true statement about abstract analyses. It is
+   admitted here because we assume the abstract analysis is implemented
+   correctly and instead focus on proving facts about whether or not we have
+   enough information to guarantee sfi properties. *)
 (* TODO: update this to use the verifier fixpoint when we update the verifier to associate
    fixpoints with functions. *)
 Theorem verifier_fixpoint_relation :
