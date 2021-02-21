@@ -1,3 +1,4 @@
+(* Code from https://github.com/tchajed/coq-record-update *)
 Set Implicit Arguments.
 
 (** Reader is the reader monad (or just the function monad). We only use

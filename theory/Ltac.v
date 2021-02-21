@@ -28,6 +28,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *)
+(* Code from http://adam.chlipala.net/cpdt/repo/ *) 
 
 Require Import Eqdep List Omega.
 
