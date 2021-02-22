@@ -3,7 +3,6 @@ Require Import Coq.Strings.String.
 Require Import Coq.Lists.List.
 Require Import Coq.Init.Logic.
 Require Import Coq.Arith.PeanoNat.
-Require Import VerifiedVerifier.Bits.
 Require Import VerifiedVerifier.Maps.
 
 Inductive register : Set :=

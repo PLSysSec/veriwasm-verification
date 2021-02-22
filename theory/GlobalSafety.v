@@ -1,5 +1,4 @@
 Require Import VerifiedVerifier.Machine.
-Require Import VerifiedVerifier.Bits.
 Require Import VerifiedVerifier.Maps.
 Require Import VerifiedVerifier.Safety.
 Require Import Coq.Init.Nat.

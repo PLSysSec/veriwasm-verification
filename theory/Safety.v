@@ -1,5 +1,4 @@
 Require Import VerifiedVerifier.Machine.
-Require Import VerifiedVerifier.Bits.
 Require Import VerifiedVerifier.Maps.
 Require Import Coq.Init.Nat.
 Require Import Coq.Lists.List.
@@ -7,10 +6,11 @@ Require Import Coq.Lists.ListSet.
 Require Import VerifiedVerifier.BinaryLattice.
 Require Import VerifiedVerifier.AbstractAnalysis.
 Require Import VerifiedVerifier.Semantics.
+Require Import VerifiedVerifier.Coqlib.
 Require Import Lia.
 
 Definition is_heap_base_data (s : state) (i : data_ty) : BinarySet :=
-if (eqb i s.(heap_base)) then bottom else top.
+if (Nat.eqb i s.(heap_base)) then bottom else top.
 
 Definition is_heap_bounded_data (s : state) (i : data_ty) : BinarySet :=
 if (ltb i (above_heap_guard_size s)) then bottom else top.
@@ -19,13 +19,13 @@ Definition is_cf_bounded_data (s : state) (i : data_ty) : BinarySet :=
 if (ltb i (List.length (program s).(Funs))) then bottom else top.
 
 Definition is_globals_base_data (s : state) (i : data_ty) : BinarySet :=
-if (eqb i s.(globals_base)) then bottom else top.
+if (Nat.eqb i s.(globals_base)) then bottom else top.
 
 Definition is_above_stack_bounded_data (s : state) (i : data_ty) : BinarySet :=
-if (eqb i (above_stack_guard_size s)) then bottom else top.
+if (Nat.eqb i (above_stack_guard_size s)) then bottom else top.
 
 Definition is_below_stack_bounded_data (s : state) (i : data_ty) : BinarySet :=
-if (eqb i (below_stack_guard_size s)) then bottom else top.
+if (Nat.eqb i (below_stack_guard_size s)) then bottom else top.
 
 Definition abstractify_data (s : state) (i : data_ty) : info :=
 {| is_heap_base := is_heap_base_data s i;
@@ -358,19 +358,12 @@ Proof.
   specialize H with f. apply H. apply H0.
 Qed.
 
-Lemma imultistep_finish' :
-  forall fuel is st is1 st1 is' st',
-    imultistep_fuel (is, st, fuel) (is1, st1, 0) ->
-    imultistep_fuel (is1, st1, 1) (is', st', 0) ->
-    imultistep_fuel (is, st, S fuel) (is', st', 0).
-Admitted.
-
 (* NOTE: This is, in general, a true statement about abstract analyses. It is
    admitted here because we assume the abstract analysis is implemented
    correctly and instead focus on proving facts about whether or not we have
    enough information to guarantee sfi properties. *)
-(* TODO: update this to use the verifier fixpoint when we update the verifier to associate
-   fixpoints with functions. *)
+(* TODO: update this to use the verifier fixpoint when we update the verifier
+   to associate fixpoints with functions. *)
 Theorem verifier_fixpoint_relation :
 forall i,
   exists fixpoint,
@@ -431,4 +424,3 @@ Proof.
     eapply verified_program_step; auto.
     eapply H1.
 Qed.
-

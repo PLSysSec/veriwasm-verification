@@ -3,12 +3,12 @@
 RecordSet.v
 RecordUpdate.v
 Coqlib.v
-Bits.v
+Maps.v
 Lattice.v
 Ltac.v
-Maps.v
 Machine.v
 BinaryLattice.v
 Semantics.v
 AbstractAnalysis.v
+Coqlib.v
 Safety.v

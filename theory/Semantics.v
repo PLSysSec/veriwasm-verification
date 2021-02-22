@@ -5,7 +5,6 @@ Require Import Coq.Init.Nat.
 Require Import Coq.Arith.PeanoNat.
 Require Import BinInt.
 Require Import VerifiedVerifier.Machine.
-Require Import VerifiedVerifier.Bits.
 Require Import VerifiedVerifier.Maps.
 Require Import VerifiedVerifier.RecordUpdate.
 
@@ -481,3 +480,11 @@ Inductive imultistep_fuel : ((list instr_ty * state) * nat) -> ((list instr_ty *
     istep_fuel (i1, s1, fuel1) (i2, s2, fuel2) ->
     imultistep_fuel (i2, s2, fuel2) (i3, s3, fuel3) ->
     imultistep_fuel (i1, s1, fuel1) (i3, s3, fuel3).
+
+Lemma imultistep_finish' :
+  forall fuel is st is1 st1 is' st',
+    imultistep_fuel (is, st, fuel) (is1, st1, 0) ->
+    imultistep_fuel (is1, st1, 1) (is', st', 0) ->
+    imultistep_fuel (is, st, S fuel) (is', st', 0).
+Admitted.
+
